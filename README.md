@@ -1,20 +1,11 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# GeoVision — 3D ULPIN & Vertical Property Mapping System
 
-# Run and deploy your AI Studio app
+An interactive 3D cadastral system extending the 2D ULPIN hierarchy down to building, floor, and unit levels with spatial geometry, ownership records, and automated validation conforming to ISO 19152 (LADM).
 
-This contains everything you need to run your app locally.
+## 🚀 Run Locally
 
-View your app in AI Studio: https://ai.studio/apps/fefc8058-1779-47b5-88d4-dc1a397dea43
-
-## Run Locally
-
-**Prerequisites:**  Node.js
-
+**Prerequisites:** Node.js (v18+)
 
 1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+   ```bash
+   npm install

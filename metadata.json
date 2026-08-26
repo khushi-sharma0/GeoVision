@@ -1,8 +1,6 @@
 {
-  "name": "Remix GeoVision — 3D ULPIN \u0026 Vertical Property Mapping System",
+  "name": "GeoVision — 3D ULPIN & Vertical Property Mapping System",
   "description": "Interactive 3D cadastral system extending 2D ULPIN hierarchy to building, floor, and unit levels with spatial geometry, ownership records, and automated validation.",
   "requestFramePermissions": [],
-  "majorCapabilities": [
-    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
-  ]
+  "majorCapabilities": []
 }

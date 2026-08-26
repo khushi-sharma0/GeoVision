@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  :root {
+    color-scheme: light;
+    --primary: #78350F;
+    --secondary: #5C4033;
+    --background: #F8F5F0;
+    --surface: #FFFFFF;
+    --text: #291F1D;
+    --border: #E8E0D5;
+    --success: #22C55E;
+  }
+  
+  html.dark {
+    color-scheme: dark;
+    --primary: #D97706;
+    --secondary: #B45309;
+    --background: #191412;
+    --surface: #241D1A;
+    --text: #F8F4EE;
+    --border: #3D322C;
+    --success: #22C55E;
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: var(--background);
+    color: var(--text);
+  }
+
+  .dark body {
+    background-color: var(--background);
+    color: var(--text);
+  }
+
+  h1, h2, h3, h4, h5, h6, .font-heading, .font-display {
+    font-family: 'IBM Plex Sans', sans-serif;
+  }
+
+  code, pre, .font-mono {
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  /* Subtle, restrained curve edges for boxes, cards, and interactive controls */
+  button, input, select, textarea, .card, [class*="rounded-"], [class*="border"] {
+    border-radius: 6px;
+  }
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.4);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.6);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(71, 85, 105, 0.5);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.8);
+}
+

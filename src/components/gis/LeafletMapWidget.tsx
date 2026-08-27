@@ -18,7 +18,7 @@ export const LeafletMapWidget: React.FC<LeafletMapWidgetProps> = ({
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const geojsonLayerRef = useRef<L.GeoJSON | null>(null);
-  const { parcels, selectedParcelId, setSelectedParcelId, isDark, layers } = useCadastre();
+  const { parcels, selectedParcelId, setSelectedParcelId, isDark } = useCadastre();
 
   useEffect(() => {
     if (!mapContainerRef.current) return;
@@ -46,14 +46,16 @@ export const LeafletMapWidget: React.FC<LeafletMapWidgetProps> = ({
     });
     mapInstanceRef.current = map;
 
-    // Base Tile Layer (Dark or Clean CartoDB / OSM)
+    // Base Tile Layer (Reliable CartoDB tiles for both Dark & Light mode)
     const tileUrl = isDark
-      ? 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'
-      : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+      ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+      : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
 
     const tileLayer = L.tileLayer(tileUrl, {
       maxZoom: 20,
+      maxNativeZoom: 19,
       subdomains: 'abcd',
+      attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
     }).addTo(map);
 
     // Render Parcels

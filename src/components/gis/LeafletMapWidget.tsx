@@ -46,16 +46,15 @@ export const LeafletMapWidget: React.FC<LeafletMapWidgetProps> = ({
     });
     mapInstanceRef.current = map;
 
-    // Base Tile Layer (Reliable CartoDB tiles for both Dark & Light mode)
+    // Base Tile Layer (Free, zero-API-key tile providers)
     const tileUrl = isDark
-      ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-      : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+      ? 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}'
+      : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 
     const tileLayer = L.tileLayer(tileUrl, {
       maxZoom: 20,
       maxNativeZoom: 19,
-      subdomains: 'abcd',
-      attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     }).addTo(map);
 
     // Render Parcels

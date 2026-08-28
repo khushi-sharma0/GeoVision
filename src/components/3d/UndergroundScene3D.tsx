@@ -4,7 +4,7 @@ import { useCadastre } from '../../context/CadastreContext';
 
 export const UndergroundScene3D: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const { isDark, layers } = useCadastre();
+  const { isDark, layers, selectedBuilding, utilities } = useCadastre();
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -15,9 +15,19 @@ export const UndergroundScene3D: React.FC = () => {
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(isDark ? 0x0b1120 : 0x1e293b);
 
+    // Calculate dynamic excavation bounds from selected building footprint & basement count
+    const footprint = selectedBuilding?.footprintAreaSqM || 800;
+    const sideMeters = Math.sqrt(footprint);
+    const boxW = Math.max(14, Math.min(22, sideMeters * 0.6));
+    const boxD = Math.max(12, Math.min(20, sideMeters * 0.5));
+
+    const basementCount = selectedBuilding?.numberOfBasements || 2;
+    const boxH = Math.max(5, basementCount * 2.8 + 1);
+    const boxCenterY = -boxH / 2;
+
     const camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 100);
-    camera.position.set(14, 8, 16);
-    camera.lookAt(0, -1.5, 0);
+    camera.position.set(boxW * 1.1, boxH * 0.9, boxD * 1.3);
+    camera.lookAt(0, boxCenterY, 0);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(width, height);
@@ -28,76 +38,69 @@ export const UndergroundScene3D: React.FC = () => {
     }
     container.appendChild(renderer.domElement);
 
-    // Light
+    // Lighting
     const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
     scene.add(ambientLight);
 
     const dirLight = new THREE.DirectionalLight(0xffffff, 1.8);
-    dirLight.position.set(10, 20, 10);
+    dirLight.position.set(15, 25, 15);
     scene.add(dirLight);
 
     // Subterranean excavation box (transparent glass foundation)
-    const boxGeo = new THREE.BoxGeometry(16, 6, 12);
+    const boxGeo = new THREE.BoxGeometry(boxW, boxH, boxD);
     const boxMat = new THREE.MeshStandardMaterial({
       color: 0x38bdf8,
       roughness: 0.2,
       metalness: 0.1,
       transparent: true,
       opacity: 0.12,
-      wireframe: false,
     });
     const boxMesh = new THREE.Mesh(boxGeo, boxMat);
-    boxMesh.position.set(0, -2.5, 0);
+    boxMesh.position.set(0, boxCenterY, 0);
     scene.add(boxMesh);
 
-    // Grid floors for B1 & B2
-    const gridB1 = new THREE.GridHelper(14, 8, 0x0284c7, 0x1e293b);
-    gridB1.position.set(0, -1, 0);
-    scene.add(gridB1);
+    // Dynamic grid helpers per basement level
+    for (let b = 1; b <= basementCount; b++) {
+      const bY = -b * 2.5;
+      const grid = new THREE.GridHelper(Math.max(boxW, boxD) - 2, 8, b === 1 ? 0x0284c7 : 0x6366f1, 0x334155);
+      grid.position.set(0, bY, 0);
+      scene.add(grid);
+    }
 
-    const gridB2 = new THREE.GridHelper(14, 8, 0x6366f1, 0x1e293b);
-    gridB2.position.set(0, -4, 0);
-    scene.add(gridB2);
+    // Render building-specific pipelines from utilities array
+    utilities.forEach((u) => {
+      if (u.coordinates.length < 2) return;
+      const color = new THREE.Color(u.colorHex);
+      const radius = Math.max(0.12, u.diameterMm / 2000);
 
-    // Pipelines
-    const pipelines = [
-      // Water Pipeline (Blue)
-      { color: 0x0284c7, r: 0.25, p1: [-7, -1.5, -3], p2: [7, -1.5, -3] },
-      { color: 0x0284c7, r: 0.25, p1: [2, -1.5, -3], p2: [2, -1.5, 4] },
-      
-      // Sewer Line (Orange)
-      { color: 0xea580c, r: 0.35, p1: [-7, -4.5, 2], p2: [7, -4.5, 2] },
-      { color: 0xea580c, r: 0.35, p1: [-3, -4.5, 2], p2: [-3, -4.5, -4] },
+      for (let i = 0; i < u.coordinates.length - 1; i++) {
+        const start = new THREE.Vector3(...u.coordinates[i]);
+        const end = new THREE.Vector3(...u.coordinates[i + 1]);
+        const distance = start.distanceTo(end);
+        if (distance < 0.01) continue;
 
-      // Electric Cable (Yellow)
-      { color: 0xeab308, r: 0.18, p1: [-7, -1.0, 4], p2: [7, -1.0, 4] },
+        const direction = new THREE.Vector3().subVectors(end, start).normalize();
+        const cylinderGeo = new THREE.CylinderGeometry(radius, radius, distance, 16);
+        const cylinderMat = new THREE.MeshStandardMaterial({
+          color: color,
+          roughness: 0.3,
+          metalness: 0.6,
+          emissive: color,
+          emissiveIntensity: 0.3,
+        });
 
-      // Storm Water Drain (Green)
-      { color: 0x10b981, r: 0.45, p1: [-7, -3.2, -1], p2: [7, -3.2, -1] },
+        const cylinder = new THREE.Mesh(cylinderGeo, cylinderMat);
+        cylinder.position.copy(new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5));
+        cylinder.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction);
+        scene.add(cylinder);
 
-      // Gas Pipeline (Purple)
-      { color: 0x8b5cf6, r: 0.18, p1: [-7, -2.2, 1], p2: [7, -2.2, 1] },
-    ];
-
-    pipelines.forEach((p) => {
-      const start = new THREE.Vector3(...p.p1);
-      const end = new THREE.Vector3(...p.p2);
-      const distance = start.distanceTo(end);
-      const direction = new THREE.Vector3().subVectors(end, start).normalize();
-
-      const cylinderGeo = new THREE.CylinderGeometry(p.r, p.r, distance, 16);
-      const cylinderMat = new THREE.MeshStandardMaterial({
-        color: p.color,
-        roughness: 0.3,
-        metalness: 0.6,
-        emissive: new THREE.Color(p.color),
-        emissiveIntensity: 0.3,
-      });
-
-      const cylinder = new THREE.Mesh(cylinderGeo, cylinderMat);
-      cylinder.position.copy(new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5));
-      cylinder.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction);
-      scene.add(cylinder);
+        // Pipe Joint Node Sphere
+        const jointGeo = new THREE.SphereGeometry(radius * 1.3, 12, 12);
+        const jointMat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.2 });
+        const jointMesh = new THREE.Mesh(jointGeo, jointMat);
+        jointMesh.position.copy(start);
+        scene.add(jointMesh);
+      }
     });
 
     let angle = 0;
@@ -105,9 +108,9 @@ export const UndergroundScene3D: React.FC = () => {
     const animate = () => {
       reqId = requestAnimationFrame(animate);
       angle += 0.003;
-      camera.position.x = 16 * Math.cos(angle);
-      camera.position.z = 16 * Math.sin(angle);
-      camera.lookAt(0, -2.5, 0);
+      camera.position.x = (boxW * 1.2) * Math.cos(angle);
+      camera.position.z = (boxD * 1.4) * Math.sin(angle);
+      camera.lookAt(0, boxCenterY, 0);
       renderer.render(scene, camera);
     };
     animate();
@@ -128,14 +131,17 @@ export const UndergroundScene3D: React.FC = () => {
       renderer.dispose();
       scene.clear();
     };
-  }, [isDark, layers]);
+  }, [isDark, layers, selectedBuilding, utilities]);
 
   return (
     <div className="relative w-full h-full min-h-[160px] rounded-lg overflow-hidden bg-slate-900 border border-slate-800">
       <div ref={containerRef} className="w-full h-full" />
       
-      {/* Overlay Pipeline Legend */}
+      {/* Overlay Header showing active building pipeline details */}
       <div className="absolute top-2 left-2 flex flex-wrap gap-2 pointer-events-none text-[10px] font-medium text-slate-200">
+        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-slate-900/90 border border-slate-700/60 backdrop-blur text-sky-400 font-bold">
+          <span>{selectedBuilding ? selectedBuilding.buildingName : 'Default Network'} Subsurface Utilities</span>
+        </div>
         <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-slate-900/80 border border-slate-700/60 backdrop-blur">
           <span className="w-2.5 h-2.5 rounded-sm bg-sky-500" />
           <span>Water Pipeline</span>

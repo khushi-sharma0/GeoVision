@@ -14,18 +14,18 @@ export type ConflictSeverity = 'High' | 'Medium' | 'Low';
 
 export interface Parcel {
   id: string;
-  ulpin: string; // 14-digit / alphanumeric standard 2D ULPIN, e.g., '27101500123456' or 'KA-BLR-2024-0001-0001'
-  localParcelId: string; // e.g., 'P-2024-0001'
-  locationName: string; // e.g., 'Worli, Mumbai, Maharashtra'
-  city?: string; // e.g., 'Mumbai', 'Pune', 'Nagpur'
+  ulpin: string; // 14-digit / alphanumeric standard 2D ULPIN
+  localParcelId: string;
+  locationName: string;
+  city?: string;
   latitude: number;
   longitude: number;
-  areaSqM: number; // e.g., 1250.00
+  areaSqM: number;
   landUse: LandUseType;
   buildingCount: number;
   status: VerificationStatus;
-  crs: string; // 'EPSG:4326 - WGS84'
-  surveyNumber: string; // 'Sy. No. 44/2B'
+  crs: string;
+  surveyNumber: string;
   village: string;
   taluk: string;
   district: string;
@@ -43,17 +43,17 @@ export interface Building {
   id: string;
   parcelId: string;
   buildingCode: string; // 'BA', 'BB', 'BC'
-  buildingName: string; // 'Harbour Heights'
+  buildingName: string;
   city?: string;
   location?: string;
-  buildingType?: string; // 'Luxury Apartment Tower', 'High-Rise Residential Tower', etc.
-  numberOfFloors: number; // 6 above ground + terrace
-  numberOfBasements: number; // 2
-  floorHeightM: number; // 3.00
-  buildingHeightM: number; // 24.00
-  footprintAreaSqM: number; // 820.00
+  buildingType?: string;
+  numberOfFloors: number;
+  numberOfBasements: number;
+  floorHeightM: number;
+  buildingHeightM: number;
+  footprintAreaSqM: number;
   yearBuilt: number;
-  structureType: string; // 'RCC Framed Multi-Storey'
+  structureType: string;
   footprintGeoJSON?: any;
 }
 
@@ -62,11 +62,11 @@ export interface Floor {
   buildingId: string;
   buildingCode: string;
   floorCode: string; // 'Terrace', 'F5', 'F4', 'F3', 'F2', 'F1', 'GF', 'B1', 'B2'
-  floorName: string; // '3rd Floor', 'Ground Floor', 'Basement 1'
-  floorIndex: number; // -2 to 6
-  zLevelM: number; // elevation offset in meters
-  totalFloorAreaSqM: number; // e.g., 820.00
-  measuredUnitAreaSumSqM: number; // sum of units
+  floorName: string;
+  floorIndex: number;
+  zLevelM: number;
+  totalFloorAreaSqM: number;
+  measuredUnitAreaSumSqM: number;
   validationStatus: 'VALID' | 'AREA_MISMATCH' | 'TOPOLOGY_ERROR' | 'UNVERIFIED';
   validationMessage?: string;
   unitCount: number;
@@ -75,30 +75,27 @@ export interface Floor {
 
 export interface Unit {
   id: string;
-  unitNumber: string; // '301', '302', '303'
-  unitCode: string; // 'F3-301'
+  unitNumber: string;
+  unitCode: string;
   buildingId: string;
   buildingCode: string;
   floorId: string;
   floorCode: string;
-  full3DULPIN: string; // '27101500123456-BA-F3-U03' or 'KA-BLR-2024-0001-0001-F3-303'
+  full3DULPIN: string;
   parentParcelULPIN: string;
-  unitType: string; // '2BHK', '3BHK', 'Penthouse', 'Commercial Studio'
-  carpetAreaSqM: number; // 130.00
-  builtUpAreaSqM: number; // 142.50
+  unitType: string;
+  carpetAreaSqM: number;
+  builtUpAreaSqM: number;
   usage: 'Residential' | 'Commercial' | 'Utility' | 'Common Area';
-  sharePercentageOfLand: number; // undivided share of land (UDS) e.g., 4.16%
+  sharePercentageOfLand: number;
   status: VerificationStatus;
   colorHex: string;
-  
-  // 3D relative positioning within floor envelope
   relativeBounds: {
     x: number;
     y: number;
     w: number;
     d: number;
   };
-  // 2D floorplan polygon vertices (0-100% normalized)
   polygon: [number, number][];
   rooms?: Array<{ name: string; areaSqM: number }>;
 }
@@ -109,26 +106,28 @@ export interface OwnershipRecord {
   unitCode: string;
   ownerName: string;
   ownerType: OwnerCategory;
-  ownershipPercentage: number; // e.g., 100
+  ownershipPercentage: number;
   ownershipType: OwnershipType;
-  docRefNo: string; // 'DOC-2023-KA-8891'
-  registrationDate: string; // '2023-04-15'
+  docRefNo: string;
+  registrationDate: string;
   verificationStatus: VerificationStatus;
   contactEmail: string;
-  nationalIdMasked: string; // 'XXXX-XXXX-4912'
+  nationalIdMasked: string;
   mortgageStatus: 'None' | 'Active Lien - State Bank' | 'Active Lien - HDFC Bank' | 'Active Lien - ICICI Bank' | 'Cleared' | string;
   notes?: string;
 }
 
 export interface UndergroundUtility {
   id: string;
+  buildingId?: string; // Associated building ID
+  parcelId?: string;   // Associated parcel ID
   type: 'Water Pipeline' | 'Sewer Line' | 'Electric Cable' | 'Storm Water Drain' | 'Gas Pipeline';
   name: string;
-  depthM: number; // negative value, e.g. -2.5
+  depthM: number;
   diameterMm: number;
   material: string;
   colorHex: string;
-  coordinates: [number, number, number][]; // 3D path
+  coordinates: [number, number, number][]; // 3D subterranean path
   status: 'Active' | 'Planned' | 'Maintenance';
 }
 
@@ -194,4 +193,3 @@ export function generateULPIN(
   const cleanUnit = unitCode.startsWith('U') ? unitCode : `U${unitCode}`;
   return `${parcelULPIN}-${buildingCode.toUpperCase()}-${cleanFloor}-${cleanUnit}`;
 }
-

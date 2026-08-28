@@ -36,7 +36,7 @@ export const LeafletMapWidget: React.FC<LeafletMapWidgetProps> = ({
 
     const map = L.map(mapContainerRef.current, {
       center: initialCenter,
-      zoom: 17,
+      zoom: 18,
       zoomControl: showControls,
       attributionControl: false,
       dragging: interactive,
@@ -46,7 +46,7 @@ export const LeafletMapWidget: React.FC<LeafletMapWidgetProps> = ({
     });
     mapInstanceRef.current = map;
 
-    // Base Tile Layer (Free, zero-API-key tile providers)
+    // Base Tile Layer (Free, zero-API-key tile providers for Light & Dark mode)
     const tileUrl = isDark
       ? 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}'
       : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
@@ -141,7 +141,7 @@ export const LeafletMapWidget: React.FC<LeafletMapWidgetProps> = ({
     if (!mapInstanceRef.current) return;
     const p = parcels.find((item) => item.id === selectedParcelId);
     if (p) {
-      mapInstanceRef.current.setView([p.latitude, p.longitude], 17, { animate: true });
+      mapInstanceRef.current.setView([p.latitude, p.longitude], 18, { animate: true });
     }
   }, [selectedParcelId, parcels]);
 

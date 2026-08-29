@@ -11,12 +11,12 @@ import {
 
 export const DataSourcesView: React.FC = () => {
   const sources = [
-    { name: 'Drone Orthomosaic (Bangalore CBD)', file: 'drone_ortho_cbd_2024.tif', size: '1.2 GB', type: 'GeoTIFF / Raster (5cm GSD)', status: 'Fused' },
-    { name: 'Airborne LiDAR Point Cloud', file: 'blr_urban_lidar_2024.las', size: '3.4 GB', type: 'LAS / 3D Points (35 pts/m²)', status: 'Fused' },
-    { name: 'Digital Elevation Model (DEM)', file: 'karnataka_dem_elevation.tif', size: '420 MB', type: 'GeoTIFF Surface Grid', status: 'Active' },
-    { name: 'Digital Surface Model (DSM)', file: 'blr_building_dsm.tif', size: '610 MB', type: 'Building Height Mesh', status: 'Active' },
-    { name: 'Karnataka CORS GNSS Network', file: 'cors_station_telemetry.json', size: '15 KB', type: 'Real-Time RTK Stream', status: 'Online' },
-    { name: 'Underground Pipe Network (GIS)', file: 'subsurface_utilities_bwssb.shp', size: '85 MB', type: 'Shapefile Vector (3D)', status: 'Active' },
+    { name: 'Drone Orthomosaic (Mumbai Metropolitan Region)', file: 'mum_urban_ortho_2024.tif', size: '1.2 GB', type: 'GeoTIFF / Raster (5cm GSD)', status: 'Planned' },
+    { name: 'Airborne LiDAR Point Cloud', file: 'mum_urban_lidar_2024.las', size: '3.4 GB', type: 'LAS / 3D Points (35 pts/m²)', status: 'Planned' },
+    { name: 'Digital Elevation Model (DEM)', file: 'maharashtra_dem_elevation.tif', size: '420 MB', type: 'GeoTIFF Surface Grid', status: 'Active' },
+    { name: 'Digital Surface Model (DSM)', file: 'mum_building_dsm.tif', size: '610 MB', type: 'Building Height Mesh', status: 'Active' },
+    { name: 'Maharashtra CORS GNSS Network', file: 'cors_station_telemetry.json', size: '15 KB', type: 'Real-Time RTK Stream', status: 'Online' },
+    { name: 'Underground Pipe Network (GIS)', file: 'subsurface_utilities_mcgm.shp', size: '85 MB', type: 'Shapefile Vector (3D)', status: 'Active' },
   ];
 
   return (
@@ -70,7 +70,10 @@ export const DataSourcesView: React.FC = () => {
 
               <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
                 <span className="text-emerald-600 flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Fused in 3D Scene
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  {s.status === 'Online' || s.status === 'Active'
+                    ? 'Integrated in Architecture'
+                    : 'Planned — Sample Data Architecture'}
                 </span>
               </div>
             </div>

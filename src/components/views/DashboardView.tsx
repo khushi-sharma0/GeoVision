@@ -28,15 +28,24 @@ import { useCadastre } from '../../context/CadastreContext';
 export const DashboardView: React.FC = () => {
   const { parcels, buildings, floors, units, conflicts, setActiveTab, selectProperty, isDark } = useCadastre();
 
-  // Synthetic Cadastral KPIs
+  // Live-computed KPIs from context data (matches PropertiesView totals exactly)
+  const totalParcels = parcels.length;
+  const totalBuildings = buildings.length;
+  const totalFloors = floors.length;
+  const totalUnits = units.length;
+  const totalConflicts = conflicts.length;
+  const verifiedUnits = units.filter((u) => u.status === 'Verified').length;
+  const pendingUnits = units.filter((u) => u.status === 'Pending').length;
+  const verifiedPct = totalUnits > 0 ? ((verifiedUnits / totalUnits) * 100).toFixed(1) : '0.0';
+
   const stats = [
-    { label: 'TOTAL PARCELS', value: '20', sub: 'Registered 2D Parcels', icon: MapPin, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-950/50' },
-    { label: 'BUILDINGS', value: '12', sub: 'Multi-Storey Structures', icon: Building2, color: 'text-indigo-600', bg: 'bg-indigo-50 dark:bg-indigo-950/50' },
-    { label: 'FLOORS', value: '78', sub: 'Vertical Strata Slabs', icon: Layers, color: 'text-purple-600', bg: 'bg-purple-50 dark:bg-purple-950/50' },
-    { label: 'UNITS', value: '312', sub: '3D Cadastral Spatial Units', icon: Building2, color: 'text-cyan-600', bg: 'bg-cyan-50 dark:bg-cyan-950/50' },
-    { label: 'VERIFIED', value: '286', sub: '91.6% Clear Ownership', icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-950/50' },
-    { label: 'CONFLICTS', value: '8', sub: 'Flagged for Adjudication', icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-50 dark:bg-red-950/50' },
-    { label: 'PENDING', value: '18', sub: 'Awaiting Sub-Registrar', icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950/50' },
+    { label: 'TOTAL PARCELS', value: String(totalParcels), sub: 'Registered 2D Parcels', icon: MapPin, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-950/50' },
+    { label: 'BUILDINGS', value: String(totalBuildings), sub: 'Multi-Storey Structures', icon: Building2, color: 'text-indigo-600', bg: 'bg-indigo-50 dark:bg-indigo-950/50' },
+    { label: 'FLOORS', value: String(totalFloors), sub: 'Vertical Strata Slabs', icon: Layers, color: 'text-purple-600', bg: 'bg-purple-50 dark:bg-purple-950/50' },
+    { label: 'UNITS', value: String(totalUnits), sub: '3D Cadastral Spatial Units', icon: Building2, color: 'text-cyan-600', bg: 'bg-cyan-50 dark:bg-cyan-950/50' },
+    { label: 'VERIFIED', value: String(verifiedUnits), sub: `${verifiedPct}% Clear Ownership`, icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-950/50' },
+    { label: 'CONFLICTS', value: String(totalConflicts), sub: 'Flagged for Adjudication', icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-50 dark:bg-red-950/50' },
+    { label: 'PENDING', value: String(pendingUnits), sub: 'Awaiting Sub-Registrar', icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950/50' },
   ];
 
   // Chart 1: Properties by Land Use
@@ -218,7 +227,7 @@ export const DashboardView: React.FC = () => {
           <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100 dark:border-slate-800">
             <div>
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
-                Registered Cadastral Parcels (Bangalore Urban)
+                Registered Cadastral Parcels (Maharashtra)
               </h3>
               <p className="text-xs text-slate-400">
                 Click any parcel to inspect 3D volumetric strata and ownership cards
@@ -229,7 +238,7 @@ export const DashboardView: React.FC = () => {
               onClick={() => setActiveTab('properties')}
               className="text-xs text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-1"
             >
-              <span>View All 20 Parcels</span>
+              <span>View All {totalParcels} Parcels</span>
               <ArrowUpRight className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -284,3 +293,4 @@ export const DashboardView: React.FC = () => {
     </div>
   );
 };
+

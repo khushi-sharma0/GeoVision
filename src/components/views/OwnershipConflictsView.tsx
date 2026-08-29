@@ -18,7 +18,7 @@ export const OwnershipConflictsView: React.FC = () => {
   const { conflicts, resolveConflict, setActiveTab, setSelectedUnitId } = useCadastre();
   const [activeConflictId, setActiveConflictId] = useState<string>(conflicts[0]?.id || '');
   const [resolutionNotes, setResolutionNotes] = useState<string>(
-    'Adjudication confirmed: Deed DOC-BLR-2024-8842 presented with valid bank encumbrance certificate. Deed DOC-BLR-2022-1109 nullified per registrar court order.'
+    'Enter adjudication officer findings and title confirmation rationale...'
   );
 
   const selectedC = conflicts.find((c) => c.id === activeConflictId) || conflicts[0];
@@ -74,7 +74,7 @@ export const OwnershipConflictsView: React.FC = () => {
                   >
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-xs text-red-700 dark:text-red-400 font-mono">
-                        Unit {c.unitCode} ({c.type})
+                        Unit {c.unitCode} ({c.issueType})
                       </span>
                       <span
                         className={`text-[10px] px-2 py-0.5 rounded font-semibold ${
@@ -107,7 +107,7 @@ export const OwnershipConflictsView: React.FC = () => {
                     Active Adjudication Case
                   </span>
                   <h2 className="text-base font-bold text-slate-900 dark:text-white font-mono">
-                    Unit {selectedC.unitCode} — {selectedC.type}
+                    Unit {selectedC.unitCode} — {selectedC.issueType}
                   </h2>
                 </div>
 
@@ -132,37 +132,37 @@ export const OwnershipConflictsView: React.FC = () => {
                 </h4>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Deed 1 */}
+                  {/* Deed 1 — Primary claimant from live conflict data */}
                   <div className="p-3.5 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-300 dark:border-emerald-800 space-y-1.5 text-xs">
                     <div className="flex items-center justify-between font-bold text-emerald-800 dark:text-emerald-300">
                       <span>Primary Registered Title</span>
                       <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-200 text-emerald-800">Valid</span>
                     </div>
                     <div className="text-slate-700 dark:text-slate-300">
-                      <strong>Claimant:</strong> Rahul Sharma (100%)
+                      <strong>Claimant:</strong> {selectedC.conflictingParties[0] ?? 'Not Available'} (100%)
                     </div>
                     <div className="text-slate-700 dark:text-slate-300 font-mono text-[11px]">
-                      <strong>Deed:</strong> DOC-BLR-2024-8842 (Sale Deed)
+                      <strong>Deed:</strong> {selectedC.docRefNumbers[0] ?? 'Not Available'} (Sale Deed)
                     </div>
                     <div className="text-slate-500 text-[11px]">
-                      <strong>Date:</strong> 14-Jan-2024 • Sub-Registrar Bangalore
+                      <strong>Reported:</strong> {selectedC.reportedDate} • {selectedC.buildingName}
                     </div>
                   </div>
 
-                  {/* Deed 2 (Disputed) */}
+                  {/* Deed 2 — Conflicting claimant from live conflict data */}
                   <div className="p-3.5 rounded-xl bg-red-50/70 dark:bg-red-950/30 border border-red-300 dark:border-red-800 space-y-1.5 text-xs">
                     <div className="flex items-center justify-between font-bold text-red-800 dark:text-red-300">
                       <span>Conflicting Claim</span>
                       <span className="text-[10px] px-2 py-0.5 rounded bg-red-200 text-red-800">Contested</span>
                     </div>
                     <div className="text-slate-700 dark:text-slate-300">
-                      <strong>Claimant:</strong> Vikram Varma (50% Claim)
+                      <strong>Claimant:</strong> {selectedC.conflictingParties[1] ?? 'Not Available'} (50% Claim)
                     </div>
                     <div className="text-slate-700 dark:text-slate-300 font-mono text-[11px]">
-                      <strong>Deed:</strong> DOC-BLR-2022-1109 (MOU Agreement)
+                      <strong>Deed:</strong> {selectedC.docRefNumbers[1] ?? 'Not Available'} (Competing Claim)
                     </div>
                     <div className="text-slate-500 text-[11px]">
-                      <strong>Date:</strong> 02-Nov-2022 • Unregistered MOU
+                      <strong>3D ULPIN:</strong> {selectedC.unit3DULPIN}
                     </div>
                   </div>
                 </div>

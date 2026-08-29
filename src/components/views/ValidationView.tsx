@@ -14,6 +14,11 @@ import { useCadastre } from '../../context/CadastreContext';
 export const ValidationView: React.FC = () => {
   const { floors, units, selectedBuilding } = useCadastre();
 
+  // Real-time ULPIN uniqueness check
+  const uniqueUlpinCount = new Set(units.map((u) => u.full3DULPIN)).size;
+  const ulpinDuplicates = units.length - uniqueUlpinCount;
+  const ulpinUnique = ulpinDuplicates === 0;
+
   // Floor F2: Valid example
   // Floor F4: Seeded Error (Unit total 1175m² vs Slab 1000m² -> Error: Sum exceeds total area by 175m²)
   const floorF2 = floors.find((f) => f.floorCode === 'F2') || floors[0];
@@ -49,7 +54,9 @@ export const ValidationView: React.FC = () => {
                 ULPIN Uniqueness
               </h4>
               <p className="text-[11px] text-slate-500 mt-0.5">
-                All 312 unit ULPINs are distinct and strictly format-compliant.
+                {ulpinUnique
+                  ? `All ${uniqueUlpinCount} unit ULPINs are distinct and strictly format-compliant.`
+                  : `${ulpinDuplicates} duplicate ULPIN(s) detected across ${units.length} units — remediation required.`}
               </p>
             </div>
           </div>
@@ -85,7 +92,7 @@ export const ValidationView: React.FC = () => {
                 Ownership Deed Links
               </h4>
               <p className="text-[11px] text-slate-500 mt-0.5">
-                Registered deeds match national sub-registrar index.
+                Cross-checked against sample deed records in this dataset.
               </p>
             </div>
           </div>

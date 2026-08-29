@@ -14,7 +14,7 @@ export type ConflictSeverity = 'High' | 'Medium' | 'Low';
 
 export interface Parcel {
   id: string;
-  ulpin: string; // 14-digit / alphanumeric standard 2D ULPIN
+  ulpin: string;
   localParcelId: string;
   locationName: string;
   city?: string;
@@ -42,7 +42,7 @@ export interface Parcel {
 export interface Building {
   id: string;
   parcelId: string;
-  buildingCode: string; // 'BA', 'BB', 'BC'
+  buildingCode: string;
   buildingName: string;
   city?: string;
   location?: string;
@@ -61,7 +61,7 @@ export interface Floor {
   id: string;
   buildingId: string;
   buildingCode: string;
-  floorCode: string; // 'Terrace', 'F5', 'F4', 'F3', 'F2', 'F1', 'GF', 'B1', 'B2'
+  floorCode: string;
   floorName: string;
   floorIndex: number;
   zLevelM: number;
@@ -119,15 +119,15 @@ export interface OwnershipRecord {
 
 export interface UndergroundUtility {
   id: string;
-  buildingId?: string; // Associated building ID
-  parcelId?: string;   // Associated parcel ID
+  buildingId?: string;
+  parcelId?: string;
   type: 'Water Pipeline' | 'Sewer Line' | 'Electric Cable' | 'Storm Water Drain' | 'Gas Pipeline';
   name: string;
   depthM: number;
   diameterMm: number;
   material: string;
   colorHex: string;
-  coordinates: [number, number, number][]; // 3D subterranean path
+  coordinates: [number, number, number][];
   status: 'Active' | 'Planned' | 'Maintenance';
 }
 

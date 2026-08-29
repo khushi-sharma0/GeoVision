@@ -105,27 +105,32 @@ export const TopNavbar: React.FC = () => {
     <header className="sticky top-0 z-40 w-full h-14 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-4 md:px-6 shrink-0 transition-colors">
       <div className="w-full flex items-center justify-between gap-4">
         {/* Left: Brand Logo & System Title */}
-        <div
-          onClick={() => setActiveTab('dashboard')}
-          className="flex items-center gap-3 cursor-pointer select-none group shrink-0"
-        >
-          <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center text-white font-bold text-xs shadow-sm group-hover:bg-blue-700 transition-colors">
-            GV
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-sm font-bold leading-tight text-slate-900 dark:text-white">
-                GeoVision
-              </h1>
-              <span className="hidden sm:inline-block px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-blue-50 text-blue-700 dark:bg-blue-950/80 dark:text-blue-300 rounded border border-blue-200 dark:border-blue-800">
-                3D Cadastre
-              </span>
-            </div>
-            <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold leading-none mt-0.5">
-              3D ULPIN & Vertical Mapping
-            </p>
-          </div>
-        </div>
+<div
+  onClick={() => setActiveTab('dashboard')}
+  className="flex items-center gap-3 cursor-pointer select-none group shrink-0"
+>
+  <div className="w-9 h-9 rounded-lg bg-white p-0.5 shadow-xs border border-slate-200 dark:border-slate-800 flex items-center justify-center overflow-hidden group-hover:scale-105 transition-transform">
+    <img
+      src="/logo.jpeg"
+      alt="GeoVision Logo"
+      className="w-full h-full object-contain"
+    />
+  </div>
+  <div>
+    <div className="flex items-center gap-2">
+      <h1 className="text-sm font-bold leading-tight text-slate-900 dark:text-white">
+        GeoVision
+      </h1>
+      <span className="hidden sm:inline-block px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-blue-50 text-blue-700 dark:bg-blue-950/80 dark:text-blue-300 rounded border border-blue-200 dark:border-blue-800">
+        3D Cadastre
+      </span>
+    </div>
+    <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold leading-none mt-0.5">
+      3D ULPIN & Vertical Mapping
+    </p>
+  </div>
+</div>
+        
 
         {/* Center: Global Search Bar matching theme */}
         <div ref={searchRef} className="relative flex-1 max-w-xl px-2 sm:px-6 hidden sm:block">

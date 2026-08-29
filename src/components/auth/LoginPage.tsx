@@ -106,22 +106,26 @@ export const LoginPage: React.FC = () => {
       <div className="w-full max-w-md z-10 my-auto">
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl p-6 sm:p-8 space-y-6">
           {/* Header Brand */}
-          <div className="text-center space-y-1.5">
-            <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-blue-600 text-white shadow-md shadow-blue-500/20 mb-2">
-              <Shield className="w-6 h-6" />
-            </div>
-            <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-              GeoVision
-            </h1>
-            <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 tracking-wide uppercase">
-              3D ULPIN & Vertical Property Mapping
-            </p>
-            <div className="pt-2">
-              <span className="inline-block px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-                OFFICIAL LOGIN
-              </span>
-            </div>
-          </div>
+<div className="text-center space-y-1.5">
+  <div className="inline-flex items-center justify-center p-2 rounded-2xl bg-white shadow-md border border-slate-200 dark:border-slate-800 mb-1 overflow-hidden">
+    <img
+      src="/logo.jpeg"
+      alt="GeoVision Logo"
+      className="w-24 h-24 object-contain rounded-xl"
+    />
+  </div>
+  <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+    GeoVision
+  </h1>
+  <p className="text-xs font-bold text-blue-600 dark:text-blue-400 tracking-wide uppercase">
+    See • Map • Verify • Build with Confidence
+  </p>
+  <div className="pt-2">
+    <span className="inline-block px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+      OFFICIAL LOGIN
+    </span>
+  </div>
+</div>
 
           {/* Error Message Box */}
           {errorMsg && (

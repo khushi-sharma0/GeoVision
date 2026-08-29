@@ -19,6 +19,7 @@ import {
 import { useCadastre } from '../../context/CadastreContext';
 import { Unit, Floor } from '../../types/cadastre';
 import { parseCSV, findHeaderKey } from '../../utils/csvParser';
+import { generateULPIN } from '../../utils/ulpinGenerator';
 
 interface ImportedUnitRecord {
   baseUlpin: string;
@@ -247,10 +248,32 @@ export const FloorUnitExplorerView: React.FC = () => {
     setSelectedCustomUnitId(null);
   };
 
-  // Generate 3D ULPIN formula: BASE ULPIN – BUILDING ID – FLOOR – UNIT ID
-  const calculated3DUlpin = currentActiveUnit
-    ? `${currentActiveUnit.baseUlpin}-${currentActiveUnit.buildingId}-${currentActiveUnit.floor}-${currentActiveUnit.unitId}`
-    : 'Not Available';
+  // Generate 3D ULPIN:
+  // - For seeded/context units: use the pre-computed full3DULPIN from the Unit record directly.
+  // - For CSV-imported units: build via the shared generateULPIN() utility so both paths share one source of truth.
+  const calculated3DUlpin = useMemo(() => {
+    if (!currentActiveUnit) return 'Not Available';
+    // CSV-imported path: construct via shared generator
+    if (customUnitsData && customUnitsData.length > 0) {
+      return generateULPIN(
+        currentActiveUnit.baseUlpin,
+        currentActiveUnit.buildingId,
+        currentActiveUnit.floor,
+        currentActiveUnit.unitId
+      );
+    }
+    // Seeded/context path: use the pre-computed field from the Unit record
+    if (selectedUnit?.full3DULPIN) {
+      return selectedUnit.full3DULPIN;
+    }
+    // Fallback (should not be reached for well-formed seeded data)
+    return generateULPIN(
+      currentActiveUnit.baseUlpin,
+      currentActiveUnit.buildingId,
+      currentActiveUnit.floor,
+      currentActiveUnit.unitId
+    );
+  }, [currentActiveUnit, customUnitsData, selectedUnit]);
 
   // Render SVG Units on Floor Plan
   const unitsOnCurrentFloor = useMemo(() => {

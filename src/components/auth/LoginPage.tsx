@@ -12,13 +12,6 @@ import {
   Moon,
   User,
   Building2,
-  CheckCircle2,
-  FileText,
-  MapPin,
-  Search,
-  Layers,
-  Database,
-  AlertTriangle,
 } from 'lucide-react';
 import { useAuth, UserRoleType } from '../../context/AuthContext';
 import { useCadastre } from '../../context/CadastreContext';
@@ -71,7 +64,7 @@ export const LoginPage: React.FC = () => {
       <div className="w-full max-w-5xl flex items-center justify-between z-10 py-2">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-white p-0.5 shadow-xs border border-slate-200 dark:border-slate-800 flex items-center justify-center overflow-hidden">
-            <img src="/logo.jpg" alt="GeoVision Logo" className="w-full h-full object-contain" />
+            <img src="/logo.jpeg" alt="GeoVision Logo" className="w-full h-full object-contain" />
           </div>
           <span className="text-xs font-bold tracking-tight text-slate-700 dark:text-slate-300">
             Govt. of Maharashtra • 3D Cadastral & Vertical Property Portal
@@ -89,12 +82,12 @@ export const LoginPage: React.FC = () => {
       </div>
 
       {/* Center Card */}
-      <div className="w-full max-w-xl z-10 my-auto py-6">
+      <div className="w-full max-w-md z-10 my-auto py-6">
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl p-6 sm:p-8 space-y-6">
           {/* Header */}
           <div className="text-center space-y-2">
             <div className="inline-flex items-center justify-center p-2 rounded-2xl bg-white shadow-md border border-slate-200 dark:border-slate-800 overflow-hidden">
-              <img src="/logo.jpg" alt="GeoVision Logo" className="w-16 h-16 object-contain rounded-xl" />
+              <img src="/logo.jpeg" alt="GeoVision Logo" className="w-20 h-20 object-contain rounded-xl" />
             </div>
             <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">GeoVision</h1>
             <p className="text-xs font-bold text-blue-600 dark:text-blue-400 tracking-wider uppercase">
@@ -129,44 +122,6 @@ export const LoginPage: React.FC = () => {
               <Building2 className="w-4 h-4" />
               <span>Authority Mode</span>
             </button>
-          </div>
-
-          {/* Mode Capabilities Feature Highlights (Matching standard design) */}
-          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60">
-            <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-              {activeMode === 'citizen' ? (
-                <>
-                  <User className="w-3.5 h-3.5 text-blue-600" />
-                  <span>Citizen Portal Access Capabilities:</span>
-                </>
-              ) : (
-                <>
-                  <Building2 className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Authority Portal Full Administration Suite:</span>
-                </>
-              )}
-            </div>
-            <div className="grid grid-cols-2 gap-1.5 text-[11px] font-medium text-slate-700 dark:text-slate-300">
-              {activeMode === 'citizen' ? (
-                <>
-                  <div className="flex items-center gap-1.5"><Search className="w-3 h-3 text-blue-500" /> Search Property</div>
-                  <div className="flex items-center gap-1.5"><Layers className="w-3 h-3 text-blue-500" /> View 3D Property</div>
-                  <div className="flex items-center gap-1.5"><CheckCircle2 className="w-3 h-3 text-blue-500" /> Check Owner/Details</div>
-                  <div className="flex items-center gap-1.5"><FileText className="w-3 h-3 text-blue-500" /> Download Property Record</div>
-                  <div className="flex items-center gap-1.5"><AlertTriangle className="w-3 h-3 text-amber-500" /> Report Incorrect Boundaries</div>
-                  <div className="flex items-center gap-1.5"><MapPin className="w-3 h-3 text-blue-500" /> Apply for Correction/Transfer</div>
-                </>
-              ) : (
-                <>
-                  <div className="flex items-center gap-1.5"><Layers className="w-3 h-3 text-emerald-500" /> 3D Parcel Creation</div>
-                  <div className="flex items-center gap-1.5"><Database className="w-3 h-3 text-emerald-500" /> LiDAR / Drone Data Ingestion</div>
-                  <div className="flex items-center gap-1.5"><MapPin className="w-3 h-3 text-emerald-500" /> GIS Cadastral Layers</div>
-                  <div className="flex items-center gap-1.5"><CheckCircle2 className="w-3 h-3 text-emerald-500" /> AI Building/Floor Extraction</div>
-                  <div className="flex items-center gap-1.5"><CheckCircle2 className="w-3 h-3 text-emerald-500" /> Topology Validation</div>
-                  <div className="flex items-center gap-1.5"><Layers className="w-3 h-3 text-emerald-500" /> Underground Infra Mapping</div>
-                </>
-              )}
-            </div>
           </div>
 
           {/* Error Box */}

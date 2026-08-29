@@ -9,11 +9,9 @@ import {
   ShieldCheck,
   Building,
   MapPin,
-  AlertTriangle,
   X,
   LogOut,
   Shield,
-  FileCheck2,
 } from 'lucide-react';
 import { useCadastre } from '../../context/CadastreContext';
 import { useAuth } from '../../context/AuthContext';
@@ -105,7 +103,7 @@ export const TopNavbar: React.FC = () => {
           className="flex items-center gap-3 cursor-pointer select-none group shrink-0"
         >
           <div className="w-9 h-9 rounded-lg bg-white p-0.5 shadow-xs border border-slate-200 dark:border-slate-800 flex items-center justify-center overflow-hidden group-hover:scale-105 transition-transform">
-            <img src="/logo.jpg" alt="GeoVision Logo" className="w-full h-full object-contain" />
+            <img src="/logo.jpeg" alt="GeoVision Logo" className="w-full h-full object-contain" />
           </div>
           <div>
             <div className="flex items-center gap-2">
@@ -226,7 +224,7 @@ export const TopNavbar: React.FC = () => {
           )}
         </div>
 
-        {/* Right Section: Theme Toggle, Notifications, User Menu */}
+        {/* Right Section */}
         <div className="flex items-center gap-3 shrink-0">
           <button
             onClick={toggleTheme}

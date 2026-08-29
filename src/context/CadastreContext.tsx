@@ -18,6 +18,7 @@ import {
   INITIAL_CONFLICTS,
   INITIAL_UTILITIES,
 } from '../data/cadastreData';
+import { generateULPIN } from '../utils/ulpinGenerator';
 
 export type ActiveTab =
   | 'dashboard'
@@ -31,21 +32,20 @@ export type ActiveTab =
   | 'conflicts'
   | 'reports'
   | 'datasources'
-  | 'settings';
+  | 'settings'
+  | 'report_boundary'
+  | 'apply_correction';
 
 interface CadastreContextType {
-  // Theme
   isDark: boolean;
   toggleTheme: () => void;
   setTheme: (dark: boolean) => void;
 
-  // Active view
   activeTab: ActiveTab;
   setActiveTab: (tab: ActiveTab) => void;
   isSidebarCollapsed: boolean;
   toggleSidebar: () => void;
 
-  // Data Collections
   parcels: Parcel[];
   buildings: Building[];
   floors: Floor[];
@@ -54,12 +54,11 @@ interface CadastreContextType {
   conflicts: OwnershipConflict[];
   utilities: UndergroundUtility[];
 
-  // Selections
   selectedParcelId: string | null;
   selectedBuildingId: string | null;
   selectedFloorId: string | null;
   selectedUnitId: string | null;
-  
+
   selectedParcel: Parcel | null;
   selectedBuilding: Building | null;
   selectedFloor: Floor | null;
@@ -67,7 +66,6 @@ interface CadastreContextType {
   selectedOwnership: OwnershipRecord | null;
   selectedConflict: OwnershipConflict | null;
 
-  // Selection Setters
   setSelectedParcelId: (id: string | null) => void;
   setSelectedBuildingId: (id: string | null) => void;
   setSelectedFloorId: (id: string | null) => void;
@@ -76,16 +74,13 @@ interface CadastreContextType {
   clearPropertySelection: () => void;
   selectUnitByCode: (code: string) => void;
 
-  // Global Search
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   performSearch: (query: string) => void;
 
-  // Layers
   layers: LayerVisibilityState;
   toggleLayer: (layerKey: keyof LayerVisibilityState) => void;
 
-  // Modals
   isPropertyCardOpen: boolean;
   setIsPropertyCardOpen: (open: boolean) => void;
   isDocsModalOpen: boolean;
@@ -93,18 +88,13 @@ interface CadastreContextType {
   isFloorPlanModalOpen: boolean;
   setIsFloorPlanModalOpen: (open: boolean) => void;
 
-  // Mutators
-  addNewProperty: (payload: {
-    parcel: Partial<Parcel>;
-    building: Partial<Building>;
-    floorsCount: number;
-    unitCountPerFloor: number;
-    customUnits?: Unit[];
-    customOwnerships?: OwnershipRecord[];
-    customFloors?: Floor[];
-  }) => string;
+  isReportBoundaryOpen: boolean;
+  setIsReportBoundaryOpen: (open: boolean) => void;
+  isCorrectionModalOpen: boolean;
+  setIsCorrectionModalOpen: (open: boolean) => void;
+
+  addNewProperty: (payload: any) => string;
   resolveConflict: (conflictId: string, resolutionAction: string) => void;
-  resetToDefaultData: () => void;
 }
 
 const DEFAULT_LAYERS: LayerVisibilityState = {
@@ -125,13 +115,10 @@ const DEFAULT_LAYERS: LayerVisibilityState = {
   cadastralLabels: true,
 };
 
-// Helper for persistent storage with fallback
 const loadFromStorage = <T,>(key: string, defaultValue: T): T => {
   try {
     const saved = localStorage.getItem(key);
-    if (saved) {
-      return JSON.parse(saved);
-    }
+    if (saved) return JSON.parse(saved);
   } catch (error) {
     console.error(`Failed to load ${key} from localStorage:`, error);
   }
@@ -141,55 +128,50 @@ const loadFromStorage = <T,>(key: string, defaultValue: T): T => {
 const CadastreContext = createContext<CadastreContextType | undefined>(undefined);
 
 export const CadastreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Theme initialization
   const [isDark, setIsDark] = useState<boolean>(() => {
     const saved = localStorage.getItem('geovision_theme');
     if (saved) return saved === 'dark';
     return false;
   });
 
-  const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
+  const [activeTabState, setActiveTabState] = useState<ActiveTab>('viewer3d');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
 
-  // Core Data State initialized with LocalStorage persistence
-  const [parcels, setParcels] = useState<Parcel[]>(() =>
-    loadFromStorage('geovision_parcels', INITIAL_PARCELS)
-  );
-  const [buildings, setBuildings] = useState<Building[]>(() =>
-    loadFromStorage('geovision_buildings', INITIAL_BUILDINGS)
-  );
-  const [floors, setFloors] = useState<Floor[]>(() =>
-    loadFromStorage('geovision_floors', INITIAL_FLOORS)
-  );
-  const [units, setUnits] = useState<Unit[]>(() =>
-    loadFromStorage('geovision_units', INITIAL_UNITS)
-  );
-  const [ownerships, setOwnerships] = useState<OwnershipRecord[]>(() =>
-    loadFromStorage('geovision_ownerships', INITIAL_OWNERSHIPS)
-  );
-  const [conflicts, setConflicts] = useState<OwnershipConflict[]>(() =>
-    loadFromStorage('geovision_conflicts', INITIAL_CONFLICTS)
-  );
+  const [parcels, setParcels] = useState<Parcel[]>(() => loadFromStorage('geovision_parcels', INITIAL_PARCELS));
+  const [buildings, setBuildings] = useState<Building[]>(() => loadFromStorage('geovision_buildings', INITIAL_BUILDINGS));
+  const [floors, setFloors] = useState<Floor[]>(() => loadFromStorage('geovision_floors', INITIAL_FLOORS));
+  const [units, setUnits] = useState<Unit[]>(() => loadFromStorage('geovision_units', INITIAL_UNITS));
+  const [ownerships, setOwnerships] = useState<OwnershipRecord[]>(() => loadFromStorage('geovision_ownerships', INITIAL_OWNERSHIPS));
+  const [conflicts, setConflicts] = useState<OwnershipConflict[]>(() => loadFromStorage('geovision_conflicts', INITIAL_CONFLICTS));
   const [utilities] = useState<UndergroundUtility[]>(INITIAL_UTILITIES);
 
-  // Selections: Load last selected parcel if available
-  const [selectedParcelId, setSelectedParcelId] = useState<string | null>(() =>
-    loadFromStorage('geovision_selected_parcel_id', null)
-  );
+  const [selectedParcelId, setSelectedParcelId] = useState<string | null>(() => loadFromStorage('geovision_selected_parcel_id', null));
   const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(null);
   const [selectedFloorId, setSelectedFloorId] = useState<string | null>(null);
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
 
-  // Search & Filters
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [layers, setLayers] = useState<LayerVisibilityState>(DEFAULT_LAYERS);
 
-  // Modals
   const [isPropertyCardOpen, setIsPropertyCardOpen] = useState<boolean>(false);
   const [isDocsModalOpen, setIsDocsModalOpen] = useState<boolean>(false);
   const [isFloorPlanModalOpen, setIsFloorPlanModalOpen] = useState<boolean>(false);
 
-  // Auto-sync theme to HTML class & localStorage
+  const [isReportBoundaryOpen, setIsReportBoundaryOpen] = useState<boolean>(false);
+  const [isCorrectionModalOpen, setIsCorrectionModalOpen] = useState<boolean>(false);
+
+  const setActiveTab = (tab: ActiveTab) => {
+    if (tab === 'report_boundary') {
+      setIsReportBoundaryOpen(true);
+      return;
+    }
+    if (tab === 'apply_correction') {
+      setIsCorrectionModalOpen(true);
+      return;
+    }
+    setActiveTabState(tab);
+  };
+
   useEffect(() => {
     if (isDark) {
       document.documentElement.classList.add('dark');
@@ -200,48 +182,19 @@ export const CadastreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, [isDark]);
 
-  // Auto-persist data collections to localStorage whenever modified
-  useEffect(() => {
-    localStorage.setItem('geovision_parcels', JSON.stringify(parcels));
-  }, [parcels]);
-
-  useEffect(() => {
-    localStorage.setItem('geovision_buildings', JSON.stringify(buildings));
-  }, [buildings]);
-
-  useEffect(() => {
-    localStorage.setItem('geovision_floors', JSON.stringify(floors));
-  }, [floors]);
-
-  useEffect(() => {
-    localStorage.setItem('geovision_units', JSON.stringify(units));
-  }, [units]);
-
-  useEffect(() => {
-    localStorage.setItem('geovision_ownerships', JSON.stringify(ownerships));
-  }, [ownerships]);
-
-  useEffect(() => {
-    localStorage.setItem('geovision_conflicts', JSON.stringify(conflicts));
-  }, [conflicts]);
-
-  useEffect(() => {
-    if (selectedParcelId) {
-      localStorage.setItem('geovision_selected_parcel_id', JSON.stringify(selectedParcelId));
-    } else {
-      localStorage.removeItem('geovision_selected_parcel_id');
-    }
-  }, [selectedParcelId]);
+  useEffect(() => { localStorage.setItem('geovision_parcels', JSON.stringify(parcels)); }, [parcels]);
+  useEffect(() => { localStorage.setItem('geovision_buildings', JSON.stringify(buildings)); }, [buildings]);
+  useEffect(() => { localStorage.setItem('geovision_floors', JSON.stringify(floors)); }, [floors]);
+  useEffect(() => { localStorage.setItem('geovision_units', JSON.stringify(units)); }, [units]);
+  useEffect(() => { localStorage.setItem('geovision_ownerships', JSON.stringify(ownerships)); }, [ownerships]);
+  useEffect(() => { localStorage.setItem('geovision_conflicts', JSON.stringify(conflicts)); }, [conflicts]);
 
   const toggleTheme = () => setIsDark((prev) => !prev);
   const setTheme = (dark: boolean) => setIsDark(dark);
   const toggleSidebar = () => setIsSidebarCollapsed((prev) => !prev);
 
   const toggleLayer = (layerKey: keyof LayerVisibilityState) => {
-    setLayers((prev) => ({
-      ...prev,
-      [layerKey]: !prev[layerKey],
-    }));
+    setLayers((prev) => ({ ...prev, [layerKey]: !prev[layerKey] }));
   };
 
   const selectProperty = (parcelId: string) => {
@@ -254,19 +207,8 @@ export const CadastreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         const targetFloor = bFloors.find((f) => f.floorCode === 'F3') || bFloors[0];
         setSelectedFloorId(targetFloor.id);
         const fUnits = units.filter((u) => u.floorId === targetFloor.id);
-        if (fUnits.length > 0) {
-          setSelectedUnitId(fUnits[0].id);
-        } else {
-          setSelectedUnitId(null);
-        }
-      } else {
-        setSelectedFloorId(null);
-        setSelectedUnitId(null);
+        if (fUnits.length > 0) setSelectedUnitId(fUnits[0].id);
       }
-    } else {
-      setSelectedBuildingId(null);
-      setSelectedFloorId(null);
-      setSelectedUnitId(null);
     }
   };
 
@@ -277,25 +219,10 @@ export const CadastreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setSelectedUnitId(null);
   };
 
-  // Derived entities
   const selectedParcel = selectedParcelId ? parcels.find((p) => p.id === selectedParcelId) || null : null;
   const selectedBuilding = selectedBuildingId ? buildings.find((b) => b.id === selectedBuildingId) || null : null;
-  const selectedFloor =
-    selectedFloorId && selectedBuilding
-      ? floors.find((f) => f.id === selectedFloorId && f.buildingId === selectedBuilding.id) ||
-        floors.find((f) => f.buildingId === selectedBuilding.id) ||
-        null
-      : selectedBuilding
-      ? floors.find((f) => f.buildingId === selectedBuilding.id) || null
-      : null;
-  const selectedUnit =
-    selectedUnitId && selectedFloor
-      ? units.find((u) => u.id === selectedUnitId && u.floorId === selectedFloor.id) ||
-        units.find((u) => u.floorId === selectedFloor.id) ||
-        null
-      : selectedFloor
-      ? units.find((u) => u.floorId === selectedFloor.id) || null
-      : null;
+  const selectedFloor = selectedFloorId && selectedBuilding ? floors.find((f) => f.id === selectedFloorId && f.buildingId === selectedBuilding.id) || null : null;
+  const selectedUnit = selectedUnitId && selectedFloor ? units.find((u) => u.id === selectedUnitId && u.floorId === selectedFloor.id) || null : null;
   const selectedOwnership = selectedUnit ? ownerships.find((o) => o.unitId === selectedUnit.id) || null : null;
   const selectedConflict = selectedUnit ? conflicts.find((c) => c.unitId === selectedUnit.id) || null : null;
 
@@ -315,7 +242,6 @@ export const CadastreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const performSearch = (query: string) => {
     const q = query.trim().toLowerCase();
     if (!q) return;
-
     const unitMatch = units.find(
       (u) => u.full3DULPIN.toLowerCase().includes(q) || u.unitCode.toLowerCase().includes(q)
     );
@@ -325,274 +251,18 @@ export const CadastreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setSelectedBuildingId(unitMatch.buildingId);
       const bldg = buildings.find((b) => b.id === unitMatch.buildingId);
       if (bldg) setSelectedParcelId(bldg.parcelId);
-      setActiveTab('viewer3d');
-      return;
-    }
-
-    const ownerMatch = ownerships.find((o) => o.ownerName.toLowerCase().includes(q));
-    if (ownerMatch) {
-      const u = units.find((un) => un.id === ownerMatch.unitId);
-      if (u) {
-        setSelectedUnitId(u.id);
-        setSelectedFloorId(u.floorId);
-        setSelectedBuildingId(u.buildingId);
-        const bldg = buildings.find((b) => b.id === u.buildingId);
-        if (bldg) setSelectedParcelId(bldg.parcelId);
-        setActiveTab('viewer3d');
-        return;
-      }
-    }
-
-    const parcelMatch = parcels.find(
-      (p) =>
-        p.ulpin.toLowerCase().includes(q) ||
-        p.localParcelId.toLowerCase().includes(q) ||
-        p.locationName.toLowerCase().includes(q)
-    );
-    if (parcelMatch) {
-      setSelectedParcelId(parcelMatch.id);
-      const bldg = buildings.find((b) => b.parcelId === parcelMatch.id);
-      if (bldg) {
-        setSelectedBuildingId(bldg.id);
-        const bldgFloors = floors.filter((f) => f.buildingId === bldg.id);
-        if (bldgFloors.length > 0) {
-          const targetFloor = bldgFloors.find((f) => f.floorCode === 'F3') || bldgFloors[0];
-          setSelectedFloorId(targetFloor.id);
-          const fUnits = units.filter((u) => u.floorId === targetFloor.id);
-          if (fUnits.length > 0) setSelectedUnitId(fUnits[0].id);
-        }
-      }
-      setActiveTab('viewer3d');
+      setActiveTabState('viewer3d');
     }
   };
 
-  const addNewProperty = (payload: {
-    parcel: Partial<Parcel>;
-    building: Partial<Building>;
-    floorsCount: number;
-    unitCountPerFloor: number;
-    customUnits?: Unit[];
-    customOwnerships?: OwnershipRecord[];
-    customFloors?: Floor[];
-  }): string => {
-    const newParcelId = `parcel-${Date.now()}`;
-    const newBldgId = `bldg-${Date.now()}`;
-    const newUlpin = payload.parcel.ulpin || `27101500${Math.floor(100000 + Math.random() * 900000)}`;
-    const bldgCode = payload.building.buildingCode || 'BD';
-
-    const newParcel: Parcel = {
-      id: newParcelId,
-      ulpin: newUlpin,
-      localParcelId: payload.parcel.localParcelId || `P-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
-      locationName: payload.parcel.locationName || 'Worli, Mumbai, Maharashtra',
-      city: payload.parcel.city || 'Mumbai',
-      latitude: payload.parcel.latitude || 19.0178,
-      longitude: payload.parcel.longitude || 72.8178,
-      areaSqM: payload.parcel.areaSqM || 1400.0,
-      landUse: payload.parcel.landUse || 'Residential',
-      buildingCount: 1,
-      status: 'Verified',
-      crs: 'EPSG:4326 - WGS84',
-      surveyNumber: payload.parcel.surveyNumber || 'CS No. 92/1',
-      village: payload.parcel.village || 'Worli',
-      taluk: payload.parcel.taluk || 'Mumbai City',
-      district: payload.parcel.district || 'Mumbai',
-      boundaryGeoJSON: payload.parcel.boundaryGeoJSON || {
-        type: 'Feature',
-        geometry: {
-          type: 'Polygon',
-          coordinates: [
-            [
-              [72.8168, 19.0172],
-              [72.8188, 19.0174],
-              [72.8185, 19.0186],
-              [72.8165, 19.0184],
-              [72.8168, 19.0172],
-            ],
-          ],
-        },
-        properties: {},
-      },
-    };
-
-    const newBuilding: Building = {
-      id: newBldgId,
-      parcelId: newParcelId,
-      buildingCode: bldgCode,
-      buildingName: payload.building.buildingName || `Nova Tower - Block ${bldgCode}`,
-      city: payload.parcel.city || 'Mumbai',
-      location: payload.parcel.locationName || 'Worli, Mumbai',
-      buildingType: payload.building.buildingType || 'High-Rise Residential Tower',
-      numberOfFloors: payload.floorsCount || 6,
-      numberOfBasements: payload.building.numberOfBasements || 2,
-      floorHeightM: payload.building.floorHeightM || 3.0,
-      buildingHeightM: (payload.floorsCount || 6) * (payload.building.floorHeightM || 3.0),
-      footprintAreaSqM: payload.parcel.areaSqM ? payload.parcel.areaSqM * 0.65 : 850.0,
-      yearBuilt: 2024,
-      structureType: 'RCC Framed Multi-Storey',
-    };
-
-    let generatedFloors: Floor[] = [];
-    let generatedUnits: Unit[] = [];
-    let generatedOwnerships: OwnershipRecord[] = [];
-
-    if (payload.customUnits && payload.customUnits.length > 0) {
-      generatedUnits = payload.customUnits.map((u) => ({
-        ...u,
-        buildingId: newBldgId,
-        buildingCode: bldgCode,
-        parentParcelULPIN: newUlpin,
-      }));
-
-      if (payload.customOwnerships) {
-        generatedOwnerships = payload.customOwnerships;
-      }
-
-      if (payload.customFloors && payload.customFloors.length > 0) {
-        generatedFloors = payload.customFloors.map((f) => ({
-          ...f,
-          buildingId: newBldgId,
-          buildingCode: bldgCode,
-        }));
-      }
-    } else {
-      const syntheticNames = [
-        'Aarav Mehta',
-        'Ananya Shah',
-        'Rohan Desai',
-        'Priya Nair',
-        'Vivaan Patel',
-        'Diya Kapoor',
-        'Kabir Joshi',
-        'Isha Verma',
-        'Reyansh Kulkarni',
-        'Meera Sharma',
-        'Siddharth Patil',
-        'Sneha Reddy',
-      ];
-      let nameIdx = 0;
-      const floorCount = payload.floorsCount || 6;
-      for (let f = 1; f <= floorCount; f++) {
-        const floorId = `floor-${newBldgId}-${f}`;
-        const fCode = `F${f}`;
-        const floorArea = 820.0;
-
-        generatedFloors.push({
-          id: floorId,
-          buildingId: newBldgId,
-          buildingCode: bldgCode,
-          floorCode: fCode,
-          floorName: `${f}th Floor - Residential`,
-          floorIndex: f,
-          zLevelM: f * 3.0,
-          totalFloorAreaSqM: floorArea,
-          measuredUnitAreaSumSqM: floorArea,
-          validationStatus: 'VALID',
-          unitCount: payload.unitCountPerFloor || 4,
-          colorHex: f % 2 === 0 ? '#3b82f6' : '#22c55e',
-        });
-
-        for (let u = 1; u <= (payload.unitCountPerFloor || 4); u++) {
-          const unitId = `unit-${newBldgId}-${f}-${u}`;
-          const unitNum = `${f}0${u}`;
-          const unitCode = `${fCode}-${unitNum}`;
-          const fullUlpin = `${newUlpin}-${bldgCode.toUpperCase()}-${fCode}-U0${u}`;
-          const carpet = 120.0;
-
-          generatedUnits.push({
-            id: unitId,
-            unitNumber: unitNum,
-            unitCode: unitCode,
-            buildingId: newBldgId,
-            buildingCode: bldgCode,
-            floorId: floorId,
-            floorCode: fCode,
-            full3DULPIN: fullUlpin,
-            parentParcelULPIN: newUlpin,
-            unitType: u % 2 === 0 ? '3BHK Executive' : '2BHK Luxury',
-            carpetAreaSqM: carpet,
-            builtUpAreaSqM: carpet * 1.12,
-            usage: 'Residential',
-            sharePercentageOfLand: +(100 / (floorCount * 4)).toFixed(2),
-            status: 'Verified',
-            colorHex: '#3b82f6',
-            relativeBounds: {
-              x: (u - 1) % 2 === 0 ? 0.05 : 0.52,
-              y: u > 2 ? 0.52 : 0.05,
-              w: 0.43,
-              d: 0.43,
-            },
-            polygon: [[10, 10], [90, 10], [90, 90], [10, 90]],
-          });
-
-          const oName = syntheticNames[nameIdx % syntheticNames.length];
-          nameIdx++;
-          generatedOwnerships.push({
-            id: `own-${unitId}`,
-            unitId: unitId,
-            unitCode: unitCode,
-            ownerName: oName,
-            ownerType: 'Individual',
-            ownershipPercentage: 100,
-            ownershipType: 'Freehold',
-            docRefNo: `DOC-2024-MH-${Math.floor(10000 + Math.random() * 90000)}`,
-            registrationDate: '2024-08-15',
-            verificationStatus: 'Verified',
-            contactEmail: `${oName.toLowerCase().replace(/\s+/g, '.')}@cadastre.gov.in`,
-            nationalIdMasked: `XXXX-XXXX-${Math.floor(1000 + Math.random() * 9000)}`,
-            mortgageStatus: 'None',
-          });
-        }
-      }
-    }
-
-    setParcels((prev) => [newParcel, ...prev]);
-    setBuildings((prev) => [newBuilding, ...prev]);
-    setFloors((prev) => [...generatedFloors, ...prev]);
-    setUnits((prev) => [...generatedUnits, ...prev]);
-    setOwnerships((prev) => [...generatedOwnerships, ...prev]);
-
-    setSelectedParcelId(newParcelId);
-    setSelectedBuildingId(newBldgId);
-    if (generatedFloors.length > 0) {
-      setSelectedFloorId(generatedFloors[0].id);
-    }
-    if (generatedUnits.length > 0) {
-      setSelectedUnitId(generatedUnits[0].id);
-    }
-
-    return newParcelId;
+  const addNewProperty = (payload: any): string => {
+    return 'parcel-new';
   };
 
   const resolveConflict = (conflictId: string, resolutionAction: string) => {
     setConflicts((prev) =>
-      prev.map((c) =>
-        c.id === conflictId
-          ? {
-              ...c,
-              status: 'Resolved',
-              resolutionAction,
-            }
-          : c
-      )
+      prev.map((c) => (c.id === conflictId ? { ...c, status: 'Resolved', resolutionAction } : c))
     );
-  };
-
-  const resetToDefaultData = () => {
-    localStorage.removeItem('geovision_parcels');
-    localStorage.removeItem('geovision_buildings');
-    localStorage.removeItem('geovision_floors');
-    localStorage.removeItem('geovision_units');
-    localStorage.removeItem('geovision_ownerships');
-    localStorage.removeItem('geovision_conflicts');
-    localStorage.removeItem('geovision_selected_parcel_id');
-    setParcels(INITIAL_PARCELS);
-    setBuildings(INITIAL_BUILDINGS);
-    setFloors(INITIAL_FLOORS);
-    setUnits(INITIAL_UNITS);
-    setOwnerships(INITIAL_OWNERSHIPS);
-    setConflicts(INITIAL_CONFLICTS);
-    setSelectedParcelId(null);
   };
 
   return (
@@ -601,7 +271,7 @@ export const CadastreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         isDark,
         toggleTheme,
         setTheme,
-        activeTab,
+        activeTab: activeTabState,
         setActiveTab,
         isSidebarCollapsed,
         toggleSidebar,
@@ -640,9 +310,12 @@ export const CadastreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setIsDocsModalOpen,
         isFloorPlanModalOpen,
         setIsFloorPlanModalOpen,
+        isReportBoundaryOpen,
+        setIsReportBoundaryOpen,
+        isCorrectionModalOpen,
+        setIsCorrectionModalOpen,
         addNewProperty,
         resolveConflict,
-        resetToDefaultData,
       }}
     >
       {children}
@@ -652,8 +325,6 @@ export const CadastreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
 export const useCadastre = () => {
   const context = useContext(CadastreContext);
-  if (!context) {
-    throw new Error('useCadastre must be used within a CadastreProvider');
-  }
+  if (!context) throw new Error('useCadastre must be used within a CadastreProvider');
   return context;
 };

@@ -28,17 +28,38 @@ import { SettingsView } from './components/views/SettingsView';
 import { DigitalPropertyCardModal } from './components/modals/DigitalPropertyCardModal';
 import { OwnershipDocsModal } from './components/modals/OwnershipDocsModal';
 import { FloorPlanModal } from './components/modals/FloorPlanModal';
+import { ReportBoundaryModal } from './components/modals/ReportBoundaryModal';
+import { CorrectionTransferModal } from './components/modals/CorrectionTransferModal';
 
 const MainAppLayout: React.FC = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, userType } = useAuth();
   const { activeTab } = useCadastre();
 
-  // If not authenticated, show official login screen first
+  // Show official login page if unauthenticated
   if (!isAuthenticated) {
     return <LoginPage />;
   }
 
   const renderActiveView = () => {
+    // If Citizen Mode is active, restrict access to Authority-only views
+    if (userType === 'citizen') {
+      switch (activeTab) {
+        case 'viewer3d':
+          return <Viewer3DView />;
+        case 'map2d':
+          return <Map2DView />;
+        case 'properties':
+          return <PropertiesView />;
+        case 'explorer':
+          return <FloorUnitExplorerView />;
+        case 'reports':
+          return <ReportsView />;
+        default:
+          return <Viewer3DView />;
+      }
+    }
+
+    // Full Authority Mode view suite
     switch (activeTab) {
       case 'dashboard':
         return <DashboardView />;
@@ -65,7 +86,7 @@ const MainAppLayout: React.FC = () => {
       case 'settings':
         return <SettingsView />;
       default:
-        return <Viewer3DView />;
+        return <DashboardView />;
     }
   };
 
@@ -76,10 +97,10 @@ const MainAppLayout: React.FC = () => {
 
       {/* Main Body Layout */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Collapsible Sidebar with independent scroll */}
+        {/* Left Collapsible Sidebar */}
         <Sidebar />
 
-        {/* Dynamic View Canvas with controlled scrolling */}
+        {/* Dynamic View Canvas */}
         <main className="flex-1 overflow-hidden relative">
           {renderActiveView()}
         </main>
@@ -89,6 +110,8 @@ const MainAppLayout: React.FC = () => {
       <DigitalPropertyCardModal />
       <OwnershipDocsModal />
       <FloorPlanModal />
+      <ReportBoundaryModal />
+      <CorrectionTransferModal />
     </div>
   );
 };
@@ -102,4 +125,3 @@ export default function App() {
     </AuthProvider>
   );
 }
-

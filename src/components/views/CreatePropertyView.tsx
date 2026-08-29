@@ -1,29 +1,21 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Layers,
-  MapPin,
-  Building,
   UploadCloud,
-  FileText,
-  CheckCircle2,
-  AlertTriangle,
   ArrowRight,
   Database,
   Sparkles,
   Loader2,
-  Eye,
-  Check,
   Zap,
   Download,
   AlertCircle,
-  X,
   Droplets,
   Flame,
   CloudRain,
   Car,
 } from 'lucide-react';
 import { useCadastre } from '../../context/CadastreContext';
-import { LandUseType, Unit, OwnershipRecord, Floor, generateULPIN } from '../../types/cadastre';
+import { LandUseType, Unit, OwnershipRecord, Floor, OwnershipType, generateULPIN } from '../../types/cadastre';
 import { FloorPlanGeometrySection } from './create-property/FloorPlanGeometrySection';
 import { Survey3DDataSection, Survey3DState } from './create-property/Survey3DDataSection';
 import { UndergroundInfraSection, UndergroundLayer } from './create-property/UndergroundInfraSection';
@@ -54,29 +46,29 @@ interface ParsedOwnershipRow {
 export const CreatePropertyView: React.FC = () => {
   const { addNewProperty, setActiveTab } = useCadastre();
 
-  // 1. Parcel Details Form State
-  const [parcelId, setParcelId] = useState<string>('P-2024-MH-0842');
-  const [existingUlpin, setExistingUlpin] = useState<string>('27101500984123');
-  const [city, setCity] = useState<string>('Mumbai');
-  const [location, setLocation] = useState<string>('Worli Sea Face, Mumbai, Maharashtra');
-  const [latitude, setLatitude] = useState<number>(19.0178);
-  const [longitude, setLongitude] = useState<number>(72.8178);
-  const [area, setArea] = useState<number>(1850.0);
+  // 1. Parcel Details Form State (Clean Blank State)
+  const [parcelId, setParcelId] = useState<string>('');
+  const [existingUlpin, setExistingUlpin] = useState<string>('');
+  const [city, setCity] = useState<string>('');
+  const [location, setLocation] = useState<string>('');
+  const [latitude, setLatitude] = useState<number>(0);
+  const [longitude, setLongitude] = useState<number>(0);
+  const [area, setArea] = useState<number>(0);
   const [landUse, setLandUse] = useState<LandUseType>('Residential');
 
-  // 2. Building Details Form State
-  const [buildingName, setBuildingName] = useState<string>('Sea Breeze Heights');
-  const [buildingCode, setBuildingCode] = useState<string>('SB');
+  // 2. Building Details Form State (Clean Blank State)
+  const [buildingName, setBuildingName] = useState<string>('');
+  const [buildingCode, setBuildingCode] = useState<string>('');
   const [buildingType, setBuildingType] = useState<string>('High-Rise Residential Tower');
-  const [floorsAboveGround, setFloorsAboveGround] = useState<number>(6);
-  const [basements, setBasements] = useState<number>(2);
+  const [floorsAboveGround, setFloorsAboveGround] = useState<number>(0);
+  const [basements, setBasements] = useState<number>(0);
   const [floorHeight, setFloorHeight] = useState<number>(3.0);
 
-  // 3. Floor Plan & Geometry Files (Section 05)
-  const [floorPlanFile, setFloorPlanFile] = useState<string | null>('floor_plans_architectural.pdf (3.8 MB)');
-  const [buildingFootprintFile, setBuildingFootprintFile] = useState<string | null>('building_footprint.geojson (180 KB)');
+  // 3. Floor Plan & Geometry Files (Blank / Unselected)
+  const [floorPlanFile, setFloorPlanFile] = useState<string | null>(null);
+  const [buildingFootprintFile, setBuildingFootprintFile] = useState<string | null>(null);
 
-  // 4. Survey & 3D Data State (Section 06)
+  // 4. Survey & 3D Data State
   const [surveyData, setSurveyData] = useState<Survey3DState>({
     droneImagery: null,
     lidarCloud: null,
@@ -85,17 +77,17 @@ export const CreatePropertyView: React.FC = () => {
     gnssCors: null,
   });
 
-  // 5. Underground Infrastructure State (Section 07)
+  // 5. Underground Infrastructure State (All disabled by default)
   const [undergroundLayers, setUndergroundLayers] = useState<UndergroundLayer[]>([
     { id: 'water', name: 'Water Supply Network', enabled: false, file: null, icon: Droplets, depthM: 2.5 },
     { id: 'sewer', name: 'Sewer Network', enabled: false, file: null, icon: Layers, depthM: 4.0 },
     { id: 'electric', name: 'Electricity & Cable Network', enabled: false, file: null, icon: Zap, depthM: 1.8 },
     { id: 'gas', name: 'Gas Pipeline', enabled: false, file: null, icon: Flame, depthM: 1.5 },
     { id: 'stormwater', name: 'Stormwater Network', enabled: false, file: null, icon: CloudRain, depthM: 3.2 },
-    { id: 'basement', name: 'Basement & Parking Layout', enabled: true, file: 'basement_parking_b1_b2.dwg (4.2 MB)', icon: Car, depthM: 6.0 },
+    { id: 'basement', name: 'Basement & Parking Layout', enabled: false, file: null, icon: Car, depthM: 6.0 },
   ]);
 
-  // 6. CSV Data States (Sections 03 & 04)
+  // 6. CSV Data States (Blank CSV Uploads)
   const [unitCsvFileName, setUnitCsvFileName] = useState<string | null>(null);
   const [parsedUnits, setParsedUnits] = useState<ParsedUnitRow[]>([]);
   const [unitCsvError, setUnitCsvError] = useState<string | null>(null);
@@ -115,11 +107,14 @@ export const CreatePropertyView: React.FC = () => {
 
   const unitFileInputRef = useRef<HTMLInputElement>(null);
   const ownershipFileInputRef = useRef<HTMLInputElement>(null);
+  const processingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Load sample dataset on mount so the user has immediate working cadastral data
   useEffect(() => {
-    handleLoadSampleUnitCSV();
-    handleLoadSampleOwnershipCSV();
+    return () => {
+      if (processingIntervalRef.current) {
+        clearInterval(processingIntervalRef.current);
+      }
+    };
   }, []);
 
   const pipelineStages = [
@@ -138,35 +133,6 @@ export const CreatePropertyView: React.FC = () => {
     'Property Card',
     'Report',
   ];
-
-  // Helper to parse standard CSV text into rows and columns
-  const parseCSVText = (text: string): { headers: string[]; rows: Record<string, string>[] } => {
-    const lines = text.split(/\r\n|\n/).filter((l) => l.trim().length > 0);
-    if (lines.length === 0) return { headers: [], rows: [] };
-
-    const rawHeaders = lines[0].split(',').map((h) => h.trim().replace(/^["']|["']$/g, ''));
-    const rows: Record<string, string>[] = [];
-
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i];
-      const values = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || line.split(',');
-      const cleanVals = values.map((v) => v.trim().replace(/^["']|["']$/g, ''));
-
-      const row: Record<string, string> = {};
-      rawHeaders.forEach((h, idx) => {
-        row[h] = cleanVals[idx] || '';
-      });
-      rows.push(row);
-    }
-
-    return { headers: rawHeaders, rows };
-  };
-
-  const findColumn = (headers: string[], candidates: string[]): string | undefined => {
-    return headers.find((h) =>
-      candidates.some((c) => h.toLowerCase().replace(/[^a-z0-9]/g, '') === c.toLowerCase().replace(/[^a-z0-9]/g, ''))
-    );
-  };
 
   // Process Unit CSV
   const processUnitCSVContent = (content: string, fileName: string) => {
@@ -197,16 +163,17 @@ export const CreatePropertyView: React.FC = () => {
       const parsed: ParsedUnitRow[] = rows.map((r, idx) => {
         const uId = r[unitIdCol!] || `U-${idx + 1}`;
         const fStr = r[floorCol!] || 'F1';
-        const fIndexMatch = fStr.match(/\d+/);
+        const cleanFloor = fStr.startsWith('F') || fStr.startsWith('B') || fStr.startsWith('G') ? fStr : `F${fStr}`;
+        const fIndexMatch = cleanFloor.match(/\d+/);
         const fIdx = fIndexMatch ? parseInt(fIndexMatch[0], 10) : 1;
         const areaNum = parseFloat(r[areaCol!]) || 110.0;
         const usageVal = r[usageCol!] || 'Residential';
 
         return {
           unitId: uId,
-          floor: fStr.startsWith('F') ? fStr : `F${fStr}`,
+          floor: cleanFloor,
           floorIndex: fIdx,
-          unitType: usageVal.includes('BHK') ? usageVal : `${usageVal} Unit`,
+          unitType: usageVal.includes('BHK') || usageVal.includes('Penthouse') ? usageVal : '2BHK Luxury',
           areaSqM: areaNum,
           usage: usageVal,
         };
@@ -232,9 +199,12 @@ export const CreatePropertyView: React.FC = () => {
       }
 
       const unitIdCol = findHeaderKey(headers, ['Unit ID', 'UnitID', 'Unit_ID', 'Unit Code', 'Unit']);
-      const ownerNameCol = findHeaderKey(headers, ['Owner Name', 'OwnerName', 'Owner', 'Full Name', 'Owner Full Name']);
-      const ownershipTypeCol = findHeaderKey(headers, ['Ownership Type', 'OwnershipType', 'Tenure', 'Title']);
-      const shareCol = findHeaderKey(headers, ['Ownership %', 'OwnershipPercentage', 'Share', 'Share %', 'Percentage']);
+      const ownerNameCol = findHeaderKey(headers, ['Owner Name', 'Owner', 'Full Name', 'Name', 'Primary Owner']);
+      const shareCol = findHeaderKey(headers, ['Ownership %', 'Share %', 'OwnershipPercentage', 'Share', 'Percentage']);
+      const ownershipTypeCol = findHeaderKey(headers, ['Ownership Type', 'Tenure', 'Tenure Type', 'Title Type', 'Type']);
+      const docCol = findHeaderKey(headers, ['Document Reference', 'Doc Ref', 'DocRefNo', 'Doc Number', 'Deed Number', 'DeedNo']);
+      const statusCol = findHeaderKey(headers, ['Verification Status', 'Status', 'Verification']);
+      const ownerTypeCol = findHeaderKey(headers, ['Owner Type', 'OwnerType', 'Entity Type']);
 
       const missing: string[] = [];
       if (!unitIdCol) missing.push('Unit ID');
@@ -246,10 +216,6 @@ export const CreatePropertyView: React.FC = () => {
         setOwnershipCsvError(`Invalid CSV structure. Missing column(s): ${missing.join(', ')}`);
         return;
       }
-
-      const docCol = findHeaderKey(headers, ['Document Reference', 'Doc Ref', 'DocRefNo', 'Doc Number', 'Deed Number', 'DeedNo']);
-      const statusCol = findHeaderKey(headers, ['Verification Status', 'Status', 'Verification']);
-      const ownerTypeCol = findHeaderKey(headers, ['Owner Type', 'OwnerType', 'Entity Type']);
 
       const parsed: ParsedOwnershipRow[] = rows.map((r, idx) => {
         const uId = r[unitIdCol!] || `U-${idx + 1}`;
@@ -423,7 +389,7 @@ SB-F6-604,Natasha Poonawalla Ltd,Corporate,100,Freehold,MH-MUM-REG-2024-1064,Ver
 
   const validationRulesPassed = validationErrors.length === 0;
 
-  // Execute 3D Property Generation (Sections 11, 12, 13 & 14 3D Positioning Fix)
+  // Execute 3D Property Generation
   const handleStartGeneration = () => {
     if (!validationRulesPassed) return;
 
@@ -432,32 +398,34 @@ SB-F6-604,Natasha Poonawalla Ltd,Corporate,100,Freehold,MH-MUM-REG-2024-1064,Ver
     setGenerationSuccess(false);
 
     let currentStep = 0;
-    const interval = setInterval(() => {
+    if (processingIntervalRef.current) clearInterval(processingIntervalRef.current);
+
+    processingIntervalRef.current = setInterval(() => {
       currentStep++;
       if (currentStep < 10) {
         setProcessingStep(currentStep);
       } else {
-        clearInterval(interval);
+        if (processingIntervalRef.current) clearInterval(processingIntervalRef.current);
         finalizeAndIngestProperty();
       }
     }, 450);
   };
 
   const finalizeAndIngestProperty = () => {
-    // Generate distinct floors with Z=0 ground elevation positioning (Requirement 14)
     const distinctFloorCodes: string[] = Array.from(new Set(parsedUnits.map((u) => u.floor)));
     
-    // Sort floor codes numerically
     distinctFloorCodes.sort((a, b) => {
-      const aNum = parseInt(a.replace(/\D/g, ''), 10) || 0;
-      const bNum = parseInt(b.replace(/\D/g, ''), 10) || 0;
-      return aNum - bNum;
+      const numA = parseInt(a.replace(/\D/g, ''), 10) || 0;
+      const numB = parseInt(b.replace(/\D/g, ''), 10) || 0;
+      return numA - numB;
     });
 
-    const customFloors: Floor[] = distinctFloorCodes.map((fCode: string, fIdxOrder: number) => {
+    // Custom Floors
+    const customFloors: Floor[] = distinctFloorCodes.map((fCode, idx) => {
       const fUnits = parsedUnits.filter((u) => u.floor === fCode);
-      const fIdx = fUnits[0]?.floorIndex || (fIdxOrder + 1);
       const areaSum = fUnits.reduce((acc, curr) => acc + curr.areaSqM, 0);
+      const fNumMatch = fCode.match(/\d+/);
+      const fIdx = fNumMatch ? parseInt(fNumMatch[0], 10) : idx + 1;
 
       return {
         id: `floor-gen-${fCode}`,
@@ -466,8 +434,7 @@ SB-F6-604,Natasha Poonawalla Ltd,Corporate,100,Freehold,MH-MUM-REG-2024-1064,Ver
         floorCode: fCode,
         floorName: `${fCode} - Residential`,
         floorIndex: fIdx,
-        // Z-Positioning: Ground = 0m, Floor 1 (Ground) sits at 0, Floor 2 at floorHeight, etc.
-        zLevelM: (fIdx - 1) * floorHeight,
+        zLevelM: (fIdx - 1) * (floorHeight || 3.0),
         totalFloorAreaSqM: areaSum * 1.15,
         measuredUnitAreaSumSqM: areaSum,
         validationStatus: 'VALID',
@@ -496,7 +463,7 @@ SB-F6-604,Natasha Poonawalla Ltd,Corporate,100,Freehold,MH-MUM-REG-2024-1064,Ver
         unitType: u.unitType,
         carpetAreaSqM: u.areaSqM,
         builtUpAreaSqM: +(u.areaSqM * 1.12).toFixed(2),
-        usage: u.usage,
+        usage: (['Residential', 'Commercial', 'Utility', 'Common Area'].includes(u.usage) ? u.usage : 'Residential') as any,
         sharePercentageOfLand: +(100 / (parsedUnits.length || 1)).toFixed(2),
         status: 'Verified',
         colorHex: idx % 3 === 0 ? '#3b82f6' : idx % 3 === 1 ? '#10b981' : '#f59e0b',
@@ -516,6 +483,15 @@ SB-F6-604,Natasha Poonawalla Ltd,Corporate,100,Freehold,MH-MUM-REG-2024-1064,Ver
         (o) => o.unitId.toLowerCase().trim() === u.unitId.toLowerCase().trim()
       );
 
+      let mappedOwnershipType: OwnershipType = 'Freehold';
+      if (matchedOwner) {
+        if (matchedOwner.ownershipType === 'Condominium') mappedOwnershipType = 'Condominium Deed';
+        else if (matchedOwner.ownershipType === 'Co-operative Society') mappedOwnershipType = 'Joint Tenancy';
+        else if (['Freehold', 'Leasehold', 'Government Allocation', 'Joint Tenancy'].includes(matchedOwner.ownershipType)) {
+          mappedOwnershipType = matchedOwner.ownershipType as OwnershipType;
+        }
+      }
+
       return {
         id: `own-gen-${u.unitId}`,
         unitId: `unit-gen-${u.unitId}`,
@@ -523,10 +499,10 @@ SB-F6-604,Natasha Poonawalla Ltd,Corporate,100,Freehold,MH-MUM-REG-2024-1064,Ver
         ownerName: matchedOwner ? matchedOwner.ownerName : 'Aditya Singhania',
         ownerType: matchedOwner ? matchedOwner.ownerType : 'Individual',
         ownershipPercentage: matchedOwner ? matchedOwner.ownershipPercentage : 100,
-        ownershipType: matchedOwner ? matchedOwner.ownershipType : 'Freehold',
+        ownershipType: mappedOwnershipType,
         docRefNo: matchedOwner ? matchedOwner.docRefNo : `DOC-MH-2024-${1000 + idx}`,
         registrationDate: new Date().toISOString().split('T')[0],
-        verificationStatus: matchedOwner ? matchedOwner.verificationStatus : 'Verified',
+        verificationStatus: matchedOwner ? (matchedOwner.verificationStatus === 'Pending Review' ? 'Pending' : matchedOwner.verificationStatus === 'Provisional' ? 'Draft' : 'Verified') : 'Verified',
         contactEmail: `${(matchedOwner?.ownerName || 'owner').toLowerCase().replace(/[^a-z0-9]/g, '.')}@cadastre.gov.in`,
         nationalIdMasked: `XXXX-XXXX-${Math.floor(1000 + Math.random() * 9000)}`,
         mortgageStatus: 'None',
@@ -660,8 +636,9 @@ SB-F6-604,Natasha Poonawalla Ltd,Corporate,100,Freehold,MH-MUM-REG-2024-1064,Ver
               <input
                 type="text"
                 value={existingUlpin}
+                placeholder="e.g., 27101500984123"
                 onChange={(e) => setExistingUlpin(e.target.value)}
-                className="w-full h-9 px-3 text-xs rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 font-mono text-slate-900 dark:text-white"
+                className="w-full h-9 px-3 text-xs rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 font-mono text-slate-900 dark:text-white placeholder:text-slate-400"
               />
             </div>
 
@@ -670,8 +647,9 @@ SB-F6-604,Natasha Poonawalla Ltd,Corporate,100,Freehold,MH-MUM-REG-2024-1064,Ver
               <input
                 type="text"
                 value={parcelId}
+                placeholder="e.g., P-2024-MH-0842"
                 onChange={(e) => setParcelId(e.target.value)}
-                className="w-full h-9 px-3 text-xs rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+                className="w-full h-9 px-3 text-xs rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400"
               />
             </div>
 
@@ -680,8 +658,9 @@ SB-F6-604,Natasha Poonawalla Ltd,Corporate,100,Freehold,MH-MUM-REG-2024-1064,Ver
               <input
                 type="text"
                 value={location}
+                placeholder="e.g., Worli Sea Face, Mumbai, Maharashtra"
                 onChange={(e) => setLocation(e.target.value)}
-                className="w-full h-9 px-3 text-xs rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+                className="w-full h-9 px-3 text-xs rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400"
               />
             </div>
 
@@ -690,9 +669,10 @@ SB-F6-604,Natasha Poonawalla Ltd,Corporate,100,Freehold,MH-MUM-REG-2024-1064,Ver
               <input
                 type="number"
                 step="0.0001"
-                value={latitude}
+                value={latitude || ''}
+                placeholder="19.0178"
                 onChange={(e) => setLatitude(parseFloat(e.target.value) || 0)}
-                className="w-full h-9 px-3 text-xs rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 font-mono text-slate-900 dark:text-white"
+                className="w-full h-9 px-3 text-xs rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 font-mono text-slate-900 dark:text-white placeholder:text-slate-400"
               />
             </div>
 
@@ -701,9 +681,10 @@ SB-F6-604,Natasha Poonawalla Ltd,Corporate,100,Freehold,MH-MUM-REG-2024-1064,Ver
               <input
                 type="number"
                 step="0.0001"
-                value={longitude}
+                value={longitude || ''}
+                placeholder="72.8178"
                 onChange={(e) => setLongitude(parseFloat(e.target.value) || 0)}
-                className="w-full h-9 px-3 text-xs rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 font-mono text-slate-900 dark:text-white"
+                className="w-full h-9 px-3 text-xs rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 font-mono text-slate-900 dark:text-white placeholder:text-slate-400"
               />
             </div>
 
@@ -711,9 +692,10 @@ SB-F6-604,Natasha Poonawalla Ltd,Corporate,100,Freehold,MH-MUM-REG-2024-1064,Ver
               <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Parcel Land Area (sq.m)</label>
               <input
                 type="number"
-                value={area}
+                value={area || ''}
+                placeholder="1850"
                 onChange={(e) => setArea(parseFloat(e.target.value) || 0)}
-                className="w-full h-9 px-3 text-xs rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+                className="w-full h-9 px-3 text-xs rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400"
               />
             </div>
 
@@ -752,8 +734,9 @@ SB-F6-604,Natasha Poonawalla Ltd,Corporate,100,Freehold,MH-MUM-REG-2024-1064,Ver
               <input
                 type="text"
                 value={buildingName}
+                placeholder="e.g., Sea Breeze Heights"
                 onChange={(e) => setBuildingName(e.target.value)}
-                className="w-full h-9 px-3 text-xs rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+                className="w-full h-9 px-3 text-xs rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400"
               />
             </div>
 
@@ -763,8 +746,9 @@ SB-F6-604,Natasha Poonawalla Ltd,Corporate,100,Freehold,MH-MUM-REG-2024-1064,Ver
                 type="text"
                 value={buildingCode}
                 maxLength={4}
+                placeholder="e.g., SB"
                 onChange={(e) => setBuildingCode(e.target.value.toUpperCase())}
-                className="w-full h-9 px-3 text-xs rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 font-mono font-bold text-slate-900 dark:text-white"
+                className="w-full h-9 px-3 text-xs rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 font-mono font-bold text-slate-900 dark:text-white placeholder:text-slate-400"
               />
             </div>
 
@@ -773,8 +757,9 @@ SB-F6-604,Natasha Poonawalla Ltd,Corporate,100,Freehold,MH-MUM-REG-2024-1064,Ver
               <input
                 type="text"
                 value={buildingType}
+                placeholder="e.g., High-Rise Residential Tower"
                 onChange={(e) => setBuildingType(e.target.value)}
-                className="w-full h-9 px-3 text-xs rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+                className="w-full h-9 px-3 text-xs rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400"
               />
             </div>
 
@@ -784,9 +769,10 @@ SB-F6-604,Natasha Poonawalla Ltd,Corporate,100,Freehold,MH-MUM-REG-2024-1064,Ver
                 type="number"
                 min={1}
                 max={50}
-                value={floorsAboveGround}
-                onChange={(e) => setFloorsAboveGround(parseInt(e.target.value, 10) || 1)}
-                className="w-full h-9 px-3 text-xs rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+                value={floorsAboveGround || ''}
+                placeholder="6"
+                onChange={(e) => setFloorsAboveGround(parseInt(e.target.value, 10) || 0)}
+                className="w-full h-9 px-3 text-xs rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400"
               />
             </div>
 
@@ -796,9 +782,10 @@ SB-F6-604,Natasha Poonawalla Ltd,Corporate,100,Freehold,MH-MUM-REG-2024-1064,Ver
                 type="number"
                 min={0}
                 max={5}
-                value={basements}
+                value={basements || ''}
+                placeholder="0"
                 onChange={(e) => setBasements(parseInt(e.target.value, 10) || 0)}
-                className="w-full h-9 px-3 text-xs rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+                className="w-full h-9 px-3 text-xs rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400"
               />
             </div>
 
@@ -807,18 +794,21 @@ SB-F6-604,Natasha Poonawalla Ltd,Corporate,100,Freehold,MH-MUM-REG-2024-1064,Ver
               <input
                 type="number"
                 step="0.1"
-                value={floorHeight}
-                onChange={(e) => setFloorHeight(parseFloat(e.target.value) || 3.0)}
-                className="w-full h-9 px-3 text-xs rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+                min={2}
+                max={10}
+                value={floorHeight || ''}
+                placeholder="3.0"
+                onChange={(e) => setFloorHeight(parseFloat(e.target.value) || 0)}
+                className="w-full h-9 px-3 text-xs rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400"
               />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Sections 03 & 04: CSV Uploads */}
+      {/* Sections 03 & 04: CSV Datasets Upload */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* 03: Unit Details CSV Upload */}
+        {/* Section 03: Unit CSV Upload */}
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xs space-y-4">
           <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
             <div className="flex items-center gap-2.5">
@@ -830,72 +820,54 @@ SB-F6-604,Natasha Poonawalla Ltd,Corporate,100,Freehold,MH-MUM-REG-2024-1064,Ver
                 <p className="text-[11px] text-slate-500">Unit ID | Floor | Unit Type | Area | Usage</p>
               </div>
             </div>
-
             <button
               type="button"
               onClick={() => downloadCSVTemplate('unit')}
-              className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 font-semibold cursor-pointer"
+              className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer"
             >
-              <Download className="w-3.5 h-3.5" />
+              <Download className="w-3 h-3" />
               <span>Template</span>
             </button>
           </div>
 
           {unitCsvError && (
-            <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-xs flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-              <div>
-                <p className="font-bold">Invalid CSV Structure</p>
-                <p className="text-[11px]">{unitCsvError}</p>
-              </div>
+            <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{unitCsvError}</span>
             </div>
           )}
 
-          <div className="space-y-3">
+          <div
+            onClick={() => unitFileInputRef.current?.click()}
+            className="border-2 border-dashed border-slate-200 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-600 rounded-xl p-4 text-center cursor-pointer transition-colors"
+          >
             <input
-              type="file"
               ref={unitFileInputRef}
-              accept=".csv,.xlsx,.txt"
+              type="file"
+              accept=".csv"
               onChange={handleUnitFileUpload}
               className="hidden"
             />
+            <UploadCloud className="w-6 h-6 text-slate-400 mx-auto mb-1" />
+            <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+              {unitCsvFileName ? `Selected: ${unitCsvFileName}` : 'Click to Upload Unit CSV File'}
+            </p>
+            <p className="text-[10px] text-slate-400 mt-0.5">Supports .CSV format (Unit ID, Floor, Area, Usage)</p>
+          </div>
 
-            <div className="flex flex-col sm:flex-row items-center gap-3">
-              <button
-                type="button"
-                onClick={() => unitFileInputRef.current?.click()}
-                className="w-full sm:w-auto flex-1 h-10 px-4 rounded-xl border-2 border-dashed border-blue-300 dark:border-blue-800 hover:border-blue-500 bg-blue-50/40 dark:bg-blue-950/20 text-blue-700 dark:text-blue-300 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-all"
-              >
-                <UploadCloud className="w-4 h-4" />
-                <span>{unitCsvFileName ? 'Change Unit CSV File' : 'Upload Unit CSV'}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleLoadSampleUnitCSV}
-                className="w-full sm:w-auto h-10 px-3.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold cursor-pointer transition-colors shrink-0"
-              >
-                Load Sample Units
-              </button>
-            </div>
-
-            {parsedUnits.length > 0 ? (
-              <div className="flex items-center justify-between text-xs text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/40 p-2.5 rounded-xl border border-emerald-200 dark:border-emerald-900/60">
-                <div className="flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>✓ {parsedUnits.length} Units Loaded</span>
-                </div>
-                <span className="font-mono text-[10px] text-slate-500">{unitCsvFileName || 'worli_sea_breeze_units.csv'}</span>
-              </div>
-            ) : (
-              <div className="p-3 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 text-center text-xs text-slate-500">
-                Upload or load sample unit data.
-              </div>
-            )}
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-slate-500">Parsed Units: <strong className="text-slate-900 dark:text-white">{parsedUnits.length}</strong></span>
+            <button
+              type="button"
+              onClick={handleLoadSampleUnitCSV}
+              className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+            >
+              Load Sample Unit Data
+            </button>
           </div>
         </div>
 
-        {/* 04: Ownership CSV Upload */}
+        {/* Section 04: Ownership CSV Upload */}
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xs space-y-4">
           <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
             <div className="flex items-center gap-2.5">
@@ -907,73 +879,55 @@ SB-F6-604,Natasha Poonawalla Ltd,Corporate,100,Freehold,MH-MUM-REG-2024-1064,Ver
                 <p className="text-[11px] text-slate-500">Unit ID | Owner Name | Owner Type | Share % | Tenure</p>
               </div>
             </div>
-
             <button
               type="button"
               onClick={() => downloadCSVTemplate('ownership')}
-              className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 font-semibold cursor-pointer"
+              className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer"
             >
-              <Download className="w-3.5 h-3.5" />
+              <Download className="w-3 h-3" />
               <span>Template</span>
             </button>
           </div>
 
           {ownershipCsvError && (
-            <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-xs flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-              <div>
-                <p className="font-bold">Invalid CSV Structure</p>
-                <p className="text-[11px]">{ownershipCsvError}</p>
-              </div>
+            <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{ownershipCsvError}</span>
             </div>
           )}
 
-          <div className="space-y-3">
+          <div
+            onClick={() => ownershipFileInputRef.current?.click()}
+            className="border-2 border-dashed border-slate-200 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-600 rounded-xl p-4 text-center cursor-pointer transition-colors"
+          >
             <input
-              type="file"
               ref={ownershipFileInputRef}
-              accept=".csv,.xlsx,.txt"
+              type="file"
+              accept=".csv"
               onChange={handleOwnershipFileUpload}
               className="hidden"
             />
+            <UploadCloud className="w-6 h-6 text-slate-400 mx-auto mb-1" />
+            <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+              {ownershipCsvFileName ? `Selected: ${ownershipCsvFileName}` : 'Click to Upload Ownership CSV File'}
+            </p>
+            <p className="text-[10px] text-slate-400 mt-0.5">Supports .CSV format (Unit ID, Owner Name, Tenure, Share)</p>
+          </div>
 
-            <div className="flex flex-col sm:flex-row items-center gap-3">
-              <button
-                type="button"
-                onClick={() => ownershipFileInputRef.current?.click()}
-                className="w-full sm:w-auto flex-1 h-10 px-4 rounded-xl border-2 border-dashed border-blue-300 dark:border-blue-800 hover:border-blue-500 bg-blue-50/40 dark:bg-blue-950/20 text-blue-700 dark:text-blue-300 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-all"
-              >
-                <UploadCloud className="w-4 h-4" />
-                <span>{ownershipCsvFileName ? 'Change Ownership CSV' : 'Upload Ownership CSV'}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleLoadSampleOwnershipCSV}
-                className="w-full sm:w-auto h-10 px-3.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold cursor-pointer transition-colors shrink-0"
-              >
-                Load Sample Ownership
-              </button>
-            </div>
-
-            {parsedOwnerships.length > 0 ? (
-              <div className="flex items-center justify-between text-xs text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/40 p-2.5 rounded-xl border border-emerald-200 dark:border-emerald-900/60">
-                <div className="flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>✓ {parsedOwnerships.length} Ownership Records Loaded</span>
-                </div>
-                <span className="font-mono text-[10px] text-slate-500">{ownershipCsvFileName || 'worli_sea_breeze_ownership.csv'}</span>
-              </div>
-            ) : (
-              <div className="p-3 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 text-center text-xs text-slate-500">
-                Upload or load sample ownership records.
-              </div>
-            )}
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-slate-500">Parsed Ownership Records: <strong className="text-slate-900 dark:text-white">{parsedOwnerships.length}</strong></span>
+            <button
+              type="button"
+              onClick={handleLoadSampleOwnershipCSV}
+              className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+            >
+              Load Sample Ownership Data
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Section 05: Floor Plan & Building Geometry */}
+      {/* Section 05: Architectural Floor Plan Upload */}
       <FloorPlanGeometrySection
         floorPlanFile={floorPlanFile}
         setFloorPlanFile={setFloorPlanFile}
@@ -1033,6 +987,7 @@ SB-F6-604,Natasha Poonawalla Ltd,Corporate,100,Freehold,MH-MUM-REG-2024-1064,Ver
           try {
             await downloadCadastralPDFReport({
               parcel: {
+                id: `parcel-${parcelId}`,
                 ulpin: existingUlpin,
                 localParcelId: parcelId,
                 locationName: location,
@@ -1041,35 +996,86 @@ SB-F6-604,Natasha Poonawalla Ltd,Corporate,100,Freehold,MH-MUM-REG-2024-1064,Ver
                 longitude: longitude,
                 areaSqM: area,
                 landUse: landUse,
-              } as any,
+                buildingCount: 1,
+                status: 'Verified',
+                crs: 'EPSG:4326',
+                surveyNumber: 'CS-101',
+                village: 'Worli',
+                taluk: 'Mumbai',
+                district: 'Mumbai',
+                boundaryGeoJSON: {
+                  type: 'Feature',
+                  geometry: { type: 'Polygon', coordinates: [] },
+                  properties: {},
+                },
+              },
               building: {
-                buildingName: buildingName,
+                id: 'bldg-gen',
+                parcelId: parcelId,
                 buildingCode: buildingCode,
+                buildingName: buildingName,
                 buildingType: buildingType,
-                floorHeightM: floorHeight,
+                numberOfFloors: floorsAboveGround,
                 numberOfBasements: basements,
-              } as any,
+                floorHeightM: floorHeight,
+                buildingHeightM: floorsAboveGround * floorHeight,
+                footprintAreaSqM: area * 0.6,
+                yearBuilt: 2024,
+                structureType: 'RCC Framed Multi-Storey',
+              },
               floor: {
-                floorName: 'Floor 1',
-                elevationM: floorHeight,
+                id: 'floor-gen-F1',
+                buildingId: 'bldg-gen',
+                buildingCode: buildingCode,
                 floorCode: 'F1',
-              } as any,
+                floorName: 'Floor 1 - Residential',
+                floorIndex: 1,
+                zLevelM: 0,
+                totalFloorAreaSqM: area * 0.6,
+                measuredUnitAreaSumSqM: area * 0.5,
+                validationStatus: 'VALID',
+                unitCount: parsedUnits.length || 1,
+                colorHex: '#3b82f6',
+              },
               unit: {
+                id: `unit-gen-${parsedUnits[0]?.unitId || '101'}`,
+                unitNumber: parsedUnits[0]?.unitId || '101',
                 unitCode: parsedUnits[0]?.unitId || '101',
+                buildingId: 'bldg-gen',
+                buildingCode: buildingCode,
+                floorId: 'floor-gen-F1',
+                floorCode: 'F1',
                 full3DULPIN: `${existingUlpin}-${buildingCode}-F1-${parsedUnits[0]?.unitId || '101'}`,
+                parentParcelULPIN: existingUlpin,
+                unitType: parsedUnits[0]?.unitType || '2BHK Luxury',
                 carpetAreaSqM: parsedUnits[0]?.areaSqM || 112.5,
-                unitType: parsedUnits[0]?.unitType || 'Residential',
-              } as any,
+                builtUpAreaSqM: (parsedUnits[0]?.areaSqM || 112.5) * 1.12,
+                usage: 'Residential',
+                sharePercentageOfLand: 100,
+                status: 'Verified',
+                colorHex: '#3b82f6',
+                relativeBounds: { x: 0.05, y: 0.05, w: 0.43, d: 0.43 },
+                polygon: [[10, 10], [90, 10], [90, 90], [10, 90]],
+              },
               ownership: {
+                id: 'own-gen-101',
+                unitId: `unit-gen-${parsedUnits[0]?.unitId || '101'}`,
+                unitCode: parsedUnits[0]?.unitId || '101',
                 ownerName: parsedOwnerships[0]?.ownerName || 'Property Owner',
-                ownershipType: parsedOwnerships[0]?.ownershipType || 'Freehold',
+                ownerType: 'Individual',
+                ownershipPercentage: 100,
+                ownershipType: 'Freehold',
                 docRefNo: parsedOwnerships[0]?.docRefNo || 'DOC-REG-2024-001',
-              } as any,
+                registrationDate: new Date().toISOString().split('T')[0],
+                verificationStatus: 'Verified',
+                contactEmail: 'owner@cadastre.gov.in',
+                nationalIdMasked: 'XXXX-XXXX-1234',
+                mortgageStatus: 'None',
+              },
             });
-          } catch (err) {
-            console.error('Auto report download failed', err);
+          } catch (e) {
+            console.error('PDF generation error:', e);
           }
-          setActiveTab('reports');
         }}
       />
     </div>

@@ -1,16 +1,6 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import * as THREE from 'three';
 import { useCadastre } from '../../context/CadastreContext';
-import {
-  RotateCcw,
-  Layers,
-  Eye,
-  Maximize2,
-  Minimize2,
-  Box,
-  Compass,
-  Sparkles,
-} from 'lucide-react';
 
 interface CadastreScene3DProps {
   onSelectUnit?: (unitId: string) => void;
@@ -29,6 +19,7 @@ export const CadastreScene3D: React.FC<CadastreScene3DProps> = ({
     selectedBuilding,
     floors,
     units,
+    utilities,
     selectedFloorId,
     selectedUnitId,
     setSelectedFloorId,
@@ -36,10 +27,8 @@ export const CadastreScene3D: React.FC<CadastreScene3DProps> = ({
     layers,
   } = useCadastre();
 
-  const [isExploded, setIsExploded] = useState<boolean>(externalExploded || false);
-  const [wireframeMode, setWireframeMode] = useState<boolean>(false);
-  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
-  const [hoveredEntity, setHoveredEntity] = useState<string | null>(null);
+  const [isExploded] = useState<boolean>(externalExploded || false);
+  const [wireframeMode] = useState<boolean>(false);
 
   // Scene references
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -52,8 +41,8 @@ export const CadastreScene3D: React.FC<CadastreScene3DProps> = ({
   const cameraOrbitRef = useRef<{ theta: number; phi: number; radius: number; target: THREE.Vector3 }>({
     theta: Math.PI / 4,
     phi: Math.PI / 3,
-    radius: 38,
-    target: new THREE.Vector3(0, 8, 0),
+    radius: 42,
+    target: new THREE.Vector3(0, 4, 0),
   });
 
   const bldgFloors = useMemo(() => {
@@ -62,13 +51,11 @@ export const CadastreScene3D: React.FC<CadastreScene3DProps> = ({
       .sort((a, b) => b.floorIndex - a.floorIndex);
   }, [floors, selectedBuilding]);
 
-  // Handle camera update helper
   const updateCameraPosition = () => {
     if (!cameraRef.current) return;
     const { theta, phi, radius, target } = cameraOrbitRef.current;
     
-    // Clamp phi to prevent flip
-    const clampedPhi = Math.max(0.1, Math.min(Math.PI / 2 - 0.05, phi));
+    const clampedPhi = Math.max(-Math.PI / 3, Math.min(Math.PI / 2 - 0.05, phi));
     cameraOrbitRef.current.phi = clampedPhi;
 
     const x = target.x + radius * Math.sin(clampedPhi) * Math.sin(theta);
@@ -77,17 +64,6 @@ export const CadastreScene3D: React.FC<CadastreScene3DProps> = ({
 
     cameraRef.current.position.set(x, y, z);
     cameraRef.current.lookAt(target);
-  };
-
-  // Reset Camera
-  const resetCamera = () => {
-    cameraOrbitRef.current = {
-      theta: Math.PI / 3.8,
-      phi: Math.PI / 3.2,
-      radius: 36,
-      target: new THREE.Vector3(0, 8, 0),
-    };
-    updateCameraPosition();
   };
 
   useEffect(() => {
@@ -100,7 +76,7 @@ export const CadastreScene3D: React.FC<CadastreScene3DProps> = ({
     const scene = new THREE.Scene();
     sceneRef.current = scene;
     scene.background = new THREE.Color(isDark ? 0x090d16 : 0xebf1f8);
-    scene.fog = new THREE.FogExp2(isDark ? 0x090d16 : 0xebf1f8, 0.012);
+    scene.fog = new THREE.FogExp2(isDark ? 0x090d16 : 0xebf1f8, 0.01);
 
     // 2. Camera Setup
     const camera = new THREE.PerspectiveCamera(42, width / height, 0.5, 1000);
@@ -131,25 +107,17 @@ export const CadastreScene3D: React.FC<CadastreScene3DProps> = ({
     dirLight.castShadow = true;
     dirLight.shadow.mapSize.width = 2048;
     dirLight.shadow.mapSize.height = 2048;
-    dirLight.shadow.camera.near = 10;
-    dirLight.shadow.camera.far = 120;
-    dirLight.shadow.camera.left = -25;
-    dirLight.shadow.camera.right = 25;
-    dirLight.shadow.camera.top = 25;
-    dirLight.shadow.camera.bottom = -25;
-    dirLight.shadow.bias = -0.0005;
     scene.add(dirLight);
 
     const fillLight = new THREE.DirectionalLight(isDark ? 0x38bdf8 : 0x93c5fd, 0.8);
     fillLight.position.set(-20, 20, -20);
     scene.add(fillLight);
 
-    // 5. Environment & Cadastral Terrain
+    // 5. Environment Ground & Roads
     const groundGeo = new THREE.PlaneGeometry(160, 160, 32, 32);
     const groundMat = new THREE.MeshStandardMaterial({
       color: isDark ? 0x0f172a : 0xe2e8f0,
       roughness: 0.85,
-      metalness: 0.1,
     });
     const ground = new THREE.Mesh(groundGeo, groundMat);
     ground.rotation.x = -Math.PI / 2;
@@ -157,366 +125,292 @@ export const CadastreScene3D: React.FC<CadastreScene3DProps> = ({
     ground.receiveShadow = true;
     scene.add(ground);
 
-    // Roads & Urban Grids
-    const roadGroup = new THREE.Group();
-    const roadMat = new THREE.MeshStandardMaterial({
-      color: isDark ? 0x1e293b : 0xcbd5e1,
-      roughness: 0.9,
-    });
-    
-    // Main Avenue
+    // Roads
+    const roadMat = new THREE.MeshStandardMaterial({ color: isDark ? 0x1e293b : 0xcbd5e1, roughness: 0.9 });
     const road1 = new THREE.Mesh(new THREE.PlaneGeometry(160, 12), roadMat);
     road1.rotation.x = -Math.PI / 2;
     road1.position.set(0, 0.01, -22);
-    roadGroup.add(road1);
+    scene.add(road1);
 
-    // Cross Street
-    const road2 = new THREE.Mesh(new THREE.PlaneGeometry(10, 160), roadMat);
-    road2.rotation.x = -Math.PI / 2;
-    road2.position.set(24, 0.01, 0);
-    roadGroup.add(road2);
-
-    // Road markings
-    const lineMat = new THREE.MeshBasicMaterial({ color: isDark ? 0x64748b : 0xffffff });
-    for (let i = -70; i < 70; i += 10) {
-      const dash = new THREE.Mesh(new THREE.PlaneGeometry(4, 0.4), lineMat);
-      dash.rotation.x = -Math.PI / 2;
-      dash.position.set(i, 0.02, -22);
-      roadGroup.add(dash);
-    }
-    scene.add(roadGroup);
-
-    // Surrounding context buildings (low poly white/grey masses)
-    const contextGroup = new THREE.Group();
-    const contextMat = new THREE.MeshStandardMaterial({
-      color: isDark ? 0x1e293b : 0xd1d5db,
-      roughness: 0.7,
-      metalness: 0.1,
-      transparent: true,
-      opacity: 0.65,
-    });
-
-    const contextCoords = [
-      { x: -28, z: -8, w: 14, h: 18, d: 14 },
-      { x: -30, z: 18, w: 16, h: 26, d: 16 },
-      { x: 2, z: 28, w: 18, h: 12, d: 12 },
-      { x: -22, z: -38, w: 20, h: 22, d: 16 },
-      { x: 38, z: -15, w: 14, h: 30, d: 14 },
-      { x: 38, z: 18, w: 16, h: 15, d: 18 },
-    ];
-
-    contextCoords.forEach((c) => {
-      const bGeo = new THREE.BoxGeometry(c.w, c.h, c.d);
-      const bMesh = new THREE.Mesh(bGeo, contextMat);
-      bMesh.position.set(c.x, c.h / 2, c.z);
-      bMesh.castShadow = true;
-      bMesh.receiveShadow = true;
-      contextGroup.add(bMesh);
-
-      // Wireframe outline for technical CAD look
-      const edges = new THREE.EdgesGeometry(bGeo);
-      const edgeLine = new THREE.LineSegments(
-        edges,
-        new THREE.LineBasicMaterial({ color: isDark ? 0x334155 : 0x94a3b8, transparent: true, opacity: 0.4 })
-      );
-      bMesh.add(edgeLine);
-    });
-    scene.add(contextGroup);
-
-    // Cadastral Parcel Boundary Highlight (Ground polygon with cyan glow)
+    // Cadastral Parcel Boundary Highlight
     const parcelGeo = new THREE.BoxGeometry(18, 0.05, 18);
-    const parcelMat = new THREE.MeshStandardMaterial({
-      color: 0x0284c7,
-      roughness: 0.3,
-      transparent: true,
-      opacity: 0.18,
-    });
+    const parcelMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, transparent: true, opacity: 0.18 });
     const parcelMesh = new THREE.Mesh(parcelGeo, parcelMat);
     parcelMesh.position.set(0, 0.03, 0);
     scene.add(parcelMesh);
 
-    // Parcel border outline
-    const parcelEdgeGeo = new THREE.EdgesGeometry(parcelGeo);
-    const parcelEdgeLine = new THREE.LineSegments(
-      parcelEdgeGeo,
-      new THREE.LineBasicMaterial({ color: 0x0284c7, linewidth: 2 })
-    );
-    parcelEdgeLine.position.set(0, 0.05, 0);
-    scene.add(parcelEdgeLine);
-
-    // 6. Tree clusters for realism
-    const treeMat = new THREE.MeshStandardMaterial({ color: isDark ? 0x15803d : 0x22c55e, roughness: 0.9 });
-    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x78350f });
-    const treePositions = [
-      [-10, 0, -14], [-12, 0, 12], [11, 0, -14], [12, 0, 12],
-      [-14, 0, -5], [14, 0, 5], [-8, 0, 14], [10, 0, 14]
-    ];
-    treePositions.forEach(([tx, _, tz]) => {
-      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.3, 1.5, 6), trunkMat);
-      trunk.position.set(tx, 0.75, tz);
-      trunk.castShadow = true;
-      scene.add(trunk);
-
-      const crown = new THREE.Mesh(new THREE.ConeGeometry(1.2, 2.8, 6), treeMat);
-      crown.position.set(tx, 2.5, tz);
-      crown.castShadow = true;
-      scene.add(crown);
-    });
-
-    // 7. Interactive 3D Building Floor & Unit Assembly
-    interactiveMeshesRef.current = {};
-    const buildingGroup = new THREE.Group();
-    buildingGroup.name = 'CadastreBuilding';
-
+    // =========================================================================
+    // 6. SUBTERRANEAN EXCAVATION CUT-OUT & BASEMENTS (B1, B2)
+    // =========================================================================
     const bWidth = 14;
     const bDepth = 14;
     const floorHeight = 2.8;
     const slabThickness = 0.2;
 
-    // Filter above-ground and basement floors
-    const aboveGroundFloors = bldgFloors.filter((f) => f.floorIndex > 0).sort((a, b) => a.floorIndex - b.floorIndex);
-    const basementFloors = bldgFloors.filter((f) => f.floorIndex < 0).sort((a, b) => b.floorIndex - a.floorIndex); // -1, -2...
-    const maxAboveIndex = aboveGroundFloors.length > 0 ? Math.max(...aboveGroundFloors.map((f) => f.floorIndex)) : 6;
+    const basementFloors = bldgFloors.filter((f) => f.floorIndex < 0 || f.isBasement);
+    const numBasements = Math.max(2, basementFloors.length);
+    const subDepthM = numBasements * floorHeight + 1.0;
 
-    // Auto calculate camera target & radius to frame building perfectly
-    const totalBuildingHeight = maxAboveIndex * floorHeight;
-    const centerY = Math.max(3.5, totalBuildingHeight / 2);
-    cameraOrbitRef.current.target.set(0, centerY, 0);
-    cameraOrbitRef.current.radius = Math.max(28, totalBuildingHeight * 1.6);
-    updateCameraPosition();
+    // Glass Excavation Foundation Box
+    const excavationGeo = new THREE.BoxGeometry(bWidth + 1.2, subDepthM, bDepth + 1.2);
+    const excavationMat = new THREE.MeshStandardMaterial({
+      color: 0x0284c7,
+      roughness: 0.1,
+      metalness: 0.2,
+      transparent: true,
+      opacity: 0.12,
+      side: THREE.BackSide,
+    });
+    const excavationMesh = new THREE.Mesh(excavationGeo, excavationMat);
+    excavationMesh.position.set(0, -subDepthM / 2, 0);
+    scene.add(excavationMesh);
 
-    // Store animated floor groups for vertical stack-up entrance animation
-    const animatedFloorGroups: Array<{ group: THREE.Group; targetY: number; floorIndex: number }> = [];
+    // Concrete Foundation Piles at the bottom
+    for (let px = -5; px <= 5; px += 10) {
+      for (let pz = -5; pz <= 5; pz += 10) {
+        const pileGeo = new THREE.CylinderGeometry(0.5, 0.5, 4, 12);
+        const pileMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.8 });
+        const pileMesh = new THREE.Mesh(pileGeo, pileMat);
+        pileMesh.position.set(px, -subDepthM - 2, pz);
+        scene.add(pileMesh);
+      }
+    }
+
+    // =========================================================================
+    // 7. UTILITY TUNNELS & ACCESS SHAFTS
+    // =========================================================================
+    if (layers.utilityTunnels || layers.undergroundInfra) {
+      const tunnelGroup = new THREE.Group();
+      
+      // Main Horizontal Utility Conduit Tunnel
+      const tunnelGeo = new THREE.CylinderGeometry(1.2, 1.2, 34, 16);
+      const tunnelMat = new THREE.MeshStandardMaterial({
+        color: 0x334155,
+        roughness: 0.6,
+        metalness: 0.4,
+        wireframe: false,
+      });
+      const tunnelMesh = new THREE.Mesh(tunnelGeo, tunnelMat);
+      tunnelMesh.rotation.z = Math.PI / 2;
+      tunnelMesh.position.set(0, -subDepthM + 0.6, -6);
+      tunnelGroup.add(tunnelMesh);
+
+      // Utility Access Shaft (Vertical ventilation tower)
+      const shaftGeo = new THREE.BoxGeometry(1.8, subDepthM + 2, 1.8);
+      const shaftMat = new THREE.MeshStandardMaterial({
+        color: 0x475569,
+        transparent: true,
+        opacity: 0.6,
+        wireframe: true,
+      });
+      const shaftMesh = new THREE.Mesh(shaftGeo, shaftMat);
+      shaftMesh.position.set(-bWidth / 2 - 1.5, -subDepthM / 2 + 1, -6);
+      tunnelGroup.add(shaftMesh);
+
+      scene.add(tunnelGroup);
+    }
+
+    // =========================================================================
+    // 8. 3D PIPELINE NETWORK OUTPUT (Water, Sewer, Gas, Electric, Stormwater)
+    // =========================================================================
+    if (layers.utilities || layers.undergroundInfra) {
+      const pipeGroup = new THREE.Group();
+
+      const defaultPipes = [
+        { color: 0x0284c7, radius: 0.35, y: -2.0, z: -7, label: 'Main Water Feeder' },
+        { color: 0xea580c, radius: 0.45, y: -4.5, z: -3, label: 'Sewer Trunk Line' },
+        { color: 0x8b5cf6, radius: 0.22, y: -1.5, z: 5, label: 'Natural PNG Gas' },
+        { color: 0xeab308, radius: 0.25, y: -1.2, z: 7, label: 'High-Voltage Electric' },
+        { color: 0x10b981, radius: 0.55, y: -3.5, z: -10, label: 'Stormwater Drain' },
+      ];
+
+      defaultPipes.forEach((p) => {
+        const pipeGeo = new THREE.CylinderGeometry(p.radius, p.radius, 36, 16);
+        const pipeMat = new THREE.MeshStandardMaterial({
+          color: p.color,
+          roughness: 0.2,
+          metalness: 0.6,
+          emissive: new THREE.Color(p.color),
+          emissiveIntensity: 0.3,
+        });
+        const pipeMesh = new THREE.Mesh(pipeGeo, pipeMat);
+        pipeMesh.rotation.z = Math.PI / 2;
+        pipeMesh.position.set(0, p.y, p.z);
+        pipeGroup.add(pipeMesh);
+      });
+
+      // Render custom utilities from context if present
+      utilities.forEach((u) => {
+        if (u.coordinates && u.coordinates.length >= 2) {
+          const path = new THREE.CatmullRomCurve3(
+            u.coordinates.map((c) => new THREE.Vector3(c[0], c[1], c[2]))
+          );
+          const tubeGeo = new THREE.TubeGeometry(path, 32, (u.diameterMm || 300) / 2000, 12, false);
+          const tubeMat = new THREE.MeshStandardMaterial({
+            color: new THREE.Color(u.colorHex || '#0284c7'),
+            roughness: 0.2,
+            metalness: 0.5,
+            emissive: new THREE.Color(u.colorHex || '#0284c7'),
+            emissiveIntensity: 0.35,
+          });
+          const tubeMesh = new THREE.Mesh(tubeGeo, tubeMat);
+          pipeGroup.add(tubeMesh);
+        }
+      });
+
+      scene.add(pipeGroup);
+    }
+
+    // =========================================================================
+    // 9. BUILDING STRUCTURE: FLOORS, BASEMENT PARKING & ELEVATED STRUCTURES
+    // =========================================================================
+    interactiveMeshesRef.current = {};
+    const buildingGroup = new THREE.Group();
 
     const sortedFloors = [...bldgFloors].sort((a, b) => a.floorIndex - b.floorIndex);
 
     sortedFloors.forEach((fl) => {
       const floorIndex = fl.floorIndex;
-      const isBasement = floorIndex < 0;
+      const isBasement = floorIndex < 0 || fl.isBasement;
+      const isElevated = fl.isElevated || fl.floorCode === 'TER';
 
-      // Ground Floor (floorIndex === 1 or 0) sits directly at terrain level Y = 0
       let baseY: number;
       if (isBasement) {
-        // e.g. B1 (index -1) -> baseY = -1 * 2.8 = -2.8
-        const explodeOffset = isExploded ? Math.abs(floorIndex) * 1.8 : 0;
-        baseY = floorIndex * floorHeight - explodeOffset;
+        baseY = floorIndex * floorHeight;
+      } else if (isElevated) {
+        const topIndex = Math.max(...bldgFloors.filter((f) => f.floorIndex > 0).map((f) => f.floorIndex));
+        baseY = topIndex * floorHeight;
       } else {
-        // e.g. F1 / Ground (index 1) -> baseY = 0
-        const floorStep = floorIndex - 1;
-        const explodeOffset = isExploded ? floorStep * 2.5 : 0;
-        baseY = floorStep * floorHeight + explodeOffset;
+        const step = floorIndex - 1;
+        baseY = step * floorHeight;
       }
 
-      // Group per floor level to allow individual vertical stack-up easing
       const floorLevelGroup = new THREE.Group();
       floorLevelGroup.position.set(0, baseY, 0);
 
       const isSelectedFloor = fl.id === selectedFloorId;
       const floorUnits = units.filter((u) => u.floorId === fl.id);
 
-      // 1. Dynamic Floor Plan Architectural Canvas Texture for the Slab
-      const slabCanvas = document.createElement('canvas');
-      slabCanvas.width = 512;
-      slabCanvas.height = 512;
-      const ctx = slabCanvas.getContext('2d');
-      if (ctx) {
-        // Blueprint background
-        ctx.fillStyle = isDark ? (isSelectedFloor ? '#1e3a8a' : '#0f172a') : (isSelectedFloor ? '#dbeafe' : '#f8fafc');
-        ctx.fillRect(0, 0, 512, 512);
-
-        // Blueprint Grid Lines
-        ctx.strokeStyle = isDark ? 'rgba(56, 189, 248, 0.15)' : 'rgba(59, 130, 246, 0.12)';
-        ctx.lineWidth = 1;
-        for (let i = 20; i < 512; i += 32) {
-          ctx.beginPath();
-          ctx.moveTo(i, 0);
-          ctx.lineTo(i, 512);
-          ctx.stroke();
-          ctx.beginPath();
-          ctx.moveTo(0, i);
-          ctx.lineTo(512, i);
-          ctx.stroke();
-        }
-
-        // Outer Structural Perimeter
-        ctx.strokeStyle = isDark ? '#38bdf8' : '#2563eb';
-        ctx.lineWidth = 4;
-        ctx.strokeRect(16, 16, 480, 480);
-
-        // Central Access Corridor (horizontal spine)
-        ctx.fillStyle = isDark ? '#1e293b' : '#e2e8f0';
-        ctx.fillRect(16, 226, 480, 60);
-        ctx.strokeStyle = isDark ? '#64748b' : '#94a3b8';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([6, 6]);
-        ctx.strokeRect(16, 226, 480, 60);
-        ctx.setLineDash([]);
-
-        ctx.fillStyle = isDark ? '#94a3b8' : '#64748b';
-        ctx.font = 'bold 11px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('CENTRAL ACCESS CORRIDOR & PASSAGEWAY', 256, 261);
-
-        // Central Elevator Core & Stairwell
-        ctx.fillStyle = isDark ? '#0284c7' : '#3b82f6';
-        ctx.fillRect(216, 16, 80, 480);
-        ctx.strokeStyle = '#60a5fa';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(216, 16, 80, 480);
-
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 10px sans-serif';
-        ctx.fillText('LIFT 1', 256, 120);
-        ctx.fillText('LIFT 2', 256, 150);
-        ctx.fillText('STAIRS', 256, 370);
-        ctx.fillText('CORE', 256, 400);
-
-        // Individual Unit Zones matching the Floor Plan Blueprint
-        const quadrants = [
-          { label: 'UNIT 01 (2BHK)', x: 26, y: 26, w: 180, h: 190, color: '#3b82f6' },
-          { label: 'UNIT 02 (2BHK)', x: 306, y: 26, w: 180, h: 190, color: '#10b981' },
-          { label: 'UNIT 03 (3BHK)', x: 26, y: 296, w: 180, h: 190, color: '#f59e0b' },
-          { label: 'UNIT 04 (3BHK)', x: 306, y: 296, w: 180, h: 190, color: '#8b5cf6' },
-        ];
-
-        quadrants.forEach((q, idx) => {
-          const u = floorUnits[idx];
-          const unitLabel = u ? `UNIT ${u.unitCode}` : q.label;
-          const carpetLabel = u ? `${u.carpetAreaSqM.toFixed(1)} m²` : '135.0 m²';
-          const isSelected = u && u.id === selectedUnitId;
-
-          // Unit Zone Fill & Border
-          ctx.fillStyle = isSelected
-            ? 'rgba(59, 130, 246, 0.4)'
-            : isDark
-            ? 'rgba(30, 41, 59, 0.7)'
-            : 'rgba(255, 255, 255, 0.8)';
-          ctx.fillRect(q.x, q.y, q.w, q.h);
-
-          ctx.strokeStyle = isSelected ? '#3b82f6' : isDark ? '#475569' : '#cbd5e1';
-          ctx.lineWidth = isSelected ? 3 : 1.5;
-          ctx.strokeRect(q.x, q.y, q.w, q.h);
-
-          // Internal Room Dividers & Doors
-          ctx.strokeStyle = isDark ? '#334155' : '#e2e8f0';
-          ctx.lineWidth = 1;
-          ctx.strokeRect(q.x + 8, q.y + 8, q.w - 16, q.h - 16);
-          // Living Hall line
-          ctx.beginPath();
-          ctx.moveTo(q.x + 8, q.y + q.h * 0.55);
-          ctx.lineTo(q.x + q.w - 8, q.y + q.h * 0.55);
-          ctx.stroke();
-
-          // Room Labels
-          ctx.fillStyle = isSelected ? '#ffffff' : isDark ? '#e2e8f0' : '#1e293b';
-          ctx.font = 'bold 12px sans-serif';
-          ctx.textAlign = 'center';
-          ctx.fillText(unitLabel, q.x + q.w / 2, q.y + 35);
-
-          ctx.font = '10px sans-serif';
-          ctx.fillStyle = isDark ? '#93c5fd' : '#2563eb';
-          ctx.fillText(carpetLabel, q.x + q.w / 2, q.y + 52);
-
-          ctx.font = '8px sans-serif';
-          ctx.fillStyle = isDark ? '#94a3b8' : '#64748b';
-          ctx.fillText('LIVING / DINING', q.x + q.w / 2, q.y + 85);
-          ctx.fillText('MASTER BEDROOM', q.x + q.w / 2, q.y + q.h * 0.75);
-          ctx.fillText('KITCHEN & BALCONY', q.x + q.w / 2, q.y + q.h * 0.88);
-        });
-      }
-
-      const slabTexture = new THREE.CanvasTexture(slabCanvas);
-      slabTexture.anisotropy = 4;
-
-      // Floor Slab Mesh with Blueprint CAD Top Surface
-      const slabGeo = new THREE.BoxGeometry(bWidth + 0.6, slabThickness, bDepth + 0.6);
-      const slabMaterials = [
-        new THREE.MeshStandardMaterial({ color: isDark ? 0x1e293b : 0xcbd5e1, roughness: 0.5 }), // Right
-        new THREE.MeshStandardMaterial({ color: isDark ? 0x1e293b : 0xcbd5e1, roughness: 0.5 }), // Left
-        new THREE.MeshStandardMaterial({ map: slabTexture, roughness: 0.2, metalness: 0.1 }), // Top (Blueprint floor plan)
-        new THREE.MeshStandardMaterial({ color: isDark ? 0x0f172a : 0x94a3b8, roughness: 0.6 }), // Bottom
-        new THREE.MeshStandardMaterial({ color: isDark ? 0x1e293b : 0xcbd5e1, roughness: 0.5 }), // Front
-        new THREE.MeshStandardMaterial({ color: isDark ? 0x1e293b : 0xcbd5e1, roughness: 0.5 }), // Back
-      ];
-
-      const slabMesh = new THREE.Mesh(slabGeo, slabMaterials);
+      // Floor Slab Mesh
+      const slabGeo = new THREE.BoxGeometry(bWidth + 0.4, slabThickness, bDepth + 0.4);
+      const slabMat = new THREE.MeshStandardMaterial({
+        color: isBasement ? 0x334155 : isElevated ? 0x475569 : isDark ? 0x1e293b : 0xcbd5e1,
+        roughness: 0.5,
+      });
+      const slabMesh = new THREE.Mesh(slabGeo, slabMat);
       slabMesh.position.set(0, slabThickness / 2, 0);
-      slabMesh.castShadow = !isBasement;
       slabMesh.receiveShadow = true;
       floorLevelGroup.add(slabMesh);
 
-      // 2. Central Elevator & Core Column in 3D
-      const coreWidth = 2.4;
-      const coreDepth = bDepth * 0.95;
-      const coreHeight = floorHeight - slabThickness;
-      const coreColGeo = new THREE.BoxGeometry(coreWidth, coreHeight, coreDepth);
-      const coreColMat = new THREE.MeshStandardMaterial({
-        color: isDark ? 0x0284c7 : 0x3b82f6,
-        roughness: 0.3,
-        metalness: 0.2,
-        transparent: true,
-        opacity: isSelectedFloor ? 0.85 : 0.6,
-      });
-      const coreColMesh = new THREE.Mesh(coreColGeo, coreColMat);
-      coreColMesh.position.set(0, slabThickness + coreHeight / 2, 0);
-      coreColMesh.castShadow = true;
-      floorLevelGroup.add(coreColMesh);
+      // =======================================================================
+      // A. BASEMENT PARKING SPACES & VEHICLES (Yellow Line Markings & Cars)
+      // =======================================================================
+      if (isBasement && (layers.parkingSpaces || true)) {
+        // Yellow Parking Slot Bay Lines
+        const lineMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
+        for (let px = -5; px <= 5; px += 2.5) {
+          const line = new THREE.Mesh(new THREE.PlaneGeometry(0.12, 4.5), lineMat);
+          line.rotation.x = -Math.PI / 2;
+          line.position.set(px, slabThickness + 0.01, -2.5);
+          floorLevelGroup.add(line);
+        }
 
-      // 3. Central Corridor Ceiling & Doorway Portal Openings
-      const corridorWidth = bWidth * 0.95;
-      const corridorDepth = 1.8;
-      const corridorGeo = new THREE.BoxGeometry(corridorWidth, 0.08, corridorDepth);
-      const corridorMat = new THREE.MeshStandardMaterial({
-        color: isDark ? 0x334155 : 0x94a3b8,
-        roughness: 0.6,
-        transparent: true,
-        opacity: 0.5,
-      });
-      const corridorMesh = new THREE.Mesh(corridorGeo, corridorMat);
-      corridorMesh.position.set(0, floorHeight - 0.05, 0);
-      floorLevelGroup.add(corridorMesh);
+        // 3D Car Silhouettes in Parking Bays
+        const carColors = [0xef4444, 0x3b82f6, 0x10b981, 0x64748b, 0x1e293b];
+        [-3.75, -1.25, 1.25, 3.75].forEach((cx, cIdx) => {
+          const carGroup = new THREE.Group();
+          
+          // Car Body
+          const bodyGeo = new THREE.BoxGeometry(1.8, 0.9, 3.6);
+          const bodyMat = new THREE.MeshStandardMaterial({ color: carColors[cIdx % carColors.length], roughness: 0.3 });
+          const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
+          bodyMesh.position.set(0, 0.45, 0);
+          carGroup.add(bodyMesh);
 
-      // Outer Structural Glass/Concrete Enclosure (Semi-transparent)
-      const enclosureGeo = new THREE.BoxGeometry(bWidth, floorHeight, bDepth);
-      
-      let floorColor = new THREE.Color(fl.colorHex || '#1d4ed8');
-      if (isSelectedFloor) {
-        floorColor = new THREE.Color(isDark ? '#6366f1' : '#1d4ed8');
+          // Car Cabin
+          const cabinGeo = new THREE.BoxGeometry(1.5, 0.6, 1.8);
+          const cabinMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.1 });
+          const cabinMesh = new THREE.Mesh(cabinGeo, cabinMat);
+          cabinMesh.position.set(0, 1.05, -0.2);
+          carGroup.add(cabinMesh);
+
+          carGroup.position.set(cx, slabThickness, -2.5);
+          floorLevelGroup.add(carGroup);
+        });
       }
 
+      // =======================================================================
+      // B. ELEVATED TERRACE STRUCTURES (Solar Array, Water Tank, Helipad)
+      // =======================================================================
+      if (isElevated && (layers.elevatedStructures || true)) {
+        // 1. Rooftop Solar Panel Array (Inclined Photovoltaic Panels)
+        const solarGroup = new THREE.Group();
+        const panelMat = new THREE.MeshStandardMaterial({ color: 0x1e3a8a, roughness: 0.1, metalness: 0.8 });
+        for (let sx = -4; sx <= 4; sx += 2.5) {
+          const panelGeo = new THREE.BoxGeometry(2.0, 0.05, 3.0);
+          const panelMesh = new THREE.Mesh(panelGeo, panelMat);
+          panelMesh.rotation.x = Math.PI / 8; // Inclined facing sun
+          panelMesh.position.set(sx, 0.8, 3.0);
+          solarGroup.add(panelMesh);
+        }
+        floorLevelGroup.add(solarGroup);
+
+        // 2. Overhead Water Tank
+        const tankGeo = new THREE.CylinderGeometry(1.6, 1.6, 2.8, 16);
+        const tankMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.3, metalness: 0.5 });
+        const tankMesh = new THREE.Mesh(tankGeo, tankMat);
+        tankMesh.position.set(-4.0, 1.6, -3.0);
+        floorLevelGroup.add(tankMesh);
+
+        // 3. Rooftop Helipad / Skydeck Landing Circle
+        const helipadCanvas = document.createElement('canvas');
+        helipadCanvas.width = 256;
+        helipadCanvas.height = 256;
+        const hCtx = helipadCanvas.getContext('2d');
+        if (hCtx) {
+          hCtx.fillStyle = '#334155';
+          hCtx.fillRect(0, 0, 256, 256);
+          hCtx.strokeStyle = '#facc15';
+          hCtx.lineWidth = 10;
+          hCtx.beginPath();
+          hCtx.arc(128, 128, 100, 0, Math.PI * 2);
+          hCtx.stroke();
+          hCtx.fillStyle = '#ffffff';
+          hCtx.font = 'bold 110px sans-serif';
+          hCtx.textAlign = 'center';
+          hCtx.textBaseline = 'middle';
+          hCtx.fillText('H', 128, 128);
+        }
+        const helipadTex = new THREE.CanvasTexture(helipadCanvas);
+        const helipadGeo = new THREE.PlaneGeometry(6, 6);
+        const helipadMat = new THREE.MeshBasicMaterial({ map: helipadTex });
+        const helipadMesh = new THREE.Mesh(helipadGeo, helipadMat);
+        helipadMesh.rotation.x = -Math.PI / 2;
+        helipadMesh.position.set(3.5, slabThickness + 0.02, -3.0);
+        floorLevelGroup.add(helipadMesh);
+      }
+
+      // =======================================================================
+      // C. UNITS & SPATIAL BOUNDING BOXES
+      // =======================================================================
+      const enclosureGeo = new THREE.BoxGeometry(bWidth, floorHeight, bDepth);
       const enclosureMat = new THREE.MeshStandardMaterial({
-        color: floorColor,
-        roughness: 0.1,
-        metalness: 0.2,
+        color: isBasement ? 0x0284c7 : isElevated ? 0xeab308 : fl.colorHex || 0x3b82f6,
         transparent: true,
-        opacity: isSelectedFloor ? 0.38 : isBasement ? 0.45 : 0.22,
+        opacity: isSelectedFloor ? 0.45 : isBasement ? 0.35 : 0.2,
         wireframe: wireframeMode,
       });
 
       const floorMesh = new THREE.Mesh(enclosureGeo, enclosureMat);
       floorMesh.position.set(0, floorHeight / 2, 0);
-      floorMesh.castShadow = !isBasement;
       floorMesh.userData = { type: 'floor', floorId: fl.id, floorCode: fl.floorCode };
       floorLevelGroup.add(floorMesh);
       interactiveMeshesRef.current[`floor-${fl.id}`] = floorMesh;
 
-      // Outer edge lines for crisp architectural aesthetic
-      const edges = new THREE.EdgesGeometry(enclosureGeo);
-      const line = new THREE.LineSegments(
-        edges,
-        new THREE.LineBasicMaterial({
-          color: isSelectedFloor ? (isDark ? 0x22d3ee : 0x1d4ed8) : isDark ? 0x475569 : 0x94a3b8,
-          linewidth: isSelectedFloor ? 2 : 1,
-        })
-      );
-      floorMesh.add(line);
-
-      // 4. Floor Unit Compartments (Extruded exactly according to Floor Plan Layout)
+      // Unit Compartments
       if (floorUnits.length > 0) {
         floorUnits.forEach((u, uIdx) => {
           const isSelectedUnit = u.id === selectedUnitId;
-          
-          // Compute precise spatial bounding box conforming to Floor Plan
           const rawW = u.relativeBounds?.w || 0.42;
           const rawD = u.relativeBounds?.d || 0.42;
           const rawX = u.relativeBounds?.x !== undefined ? u.relativeBounds.x : (uIdx % 2 === 0 ? 0.05 : 0.53);
@@ -524,7 +418,7 @@ export const CadastreScene3D: React.FC<CadastreScene3DProps> = ({
 
           const uWidth = (bWidth - 1.2) * rawW;
           const uDepth = (bDepth - 1.2) * rawD;
-          const uHeight = (floorHeight - slabThickness) * 0.92;
+          const uHeight = (floorHeight - slabThickness) * 0.9;
 
           const uX = -bWidth / 2 + 0.6 + rawX * (bWidth - 1.2) + uWidth / 2;
           const uZ = -bDepth / 2 + 0.6 + rawY * (bDepth - 1.2) + uDepth / 2;
@@ -532,386 +426,95 @@ export const CadastreScene3D: React.FC<CadastreScene3DProps> = ({
 
           const unitGeo = new THREE.BoxGeometry(uWidth, uHeight, uDepth);
           const unitColor = isSelectedUnit
-            ? new THREE.Color(isDark ? 0x22d3ee : 0x1d4ed8)
+            ? new THREE.Color(0x22d3ee)
             : new THREE.Color(u.colorHex || '#0f766e');
 
           const unitMat = new THREE.MeshStandardMaterial({
             color: unitColor,
-            roughness: 0.25,
-            metalness: 0.15,
+            roughness: 0.3,
             transparent: true,
-            opacity: isSelectedUnit ? 0.95 : isSelectedFloor ? 0.72 : 0.48,
-            emissive: isSelectedUnit ? new THREE.Color(isDark ? 0x22d3ee : 0x1d4ed8) : new THREE.Color(0x000000),
-            emissiveIntensity: isSelectedUnit ? 0.45 : 0.0,
-            wireframe: wireframeMode,
+            opacity: isSelectedUnit ? 0.95 : 0.65,
+            emissive: isSelectedUnit ? new THREE.Color(0x0284c7) : new THREE.Color(0x000000),
+            emissiveIntensity: isSelectedUnit ? 0.5 : 0,
           });
 
           const unitMesh = new THREE.Mesh(unitGeo, unitMat);
           unitMesh.position.set(uX, uY, uZ);
-          unitMesh.castShadow = true;
-          unitMesh.userData = {
-            type: 'unit',
-            unitId: u.id,
-            unitCode: u.unitCode,
-            floorId: fl.id,
-            ulpin: u.full3DULPIN,
-          };
+          unitMesh.userData = { type: 'unit', unitId: u.id, unitCode: u.unitCode, floorId: fl.id };
 
           const unitEdge = new THREE.LineSegments(
             new THREE.EdgesGeometry(unitGeo),
-            new THREE.LineBasicMaterial({
-              color: isSelectedUnit ? 0xffffff : 0x000000,
-              transparent: true,
-              opacity: isSelectedUnit ? 1 : 0.4,
-            })
+            new THREE.LineBasicMaterial({ color: isSelectedUnit ? 0xffffff : 0x000000, opacity: 0.4 })
           );
           unitMesh.add(unitEdge);
-
-          // 5. Interior Room Partition Walls inside the Unit (Living, Bedroom, Balcony)
-          const roomPartitionGeo = new THREE.BoxGeometry(uWidth * 0.9, uHeight * 0.85, 0.12);
-          const partitionMat = new THREE.MeshStandardMaterial({
-            color: isDark ? 0x334155 : 0xe2e8f0,
-            roughness: 0.7,
-            transparent: true,
-            opacity: isSelectedUnit ? 0.9 : 0.4,
-          });
-          const partitionMesh = new THREE.Mesh(roomPartitionGeo, partitionMat);
-          partitionMesh.position.set(0, 0, -uDepth * 0.1);
-          unitMesh.add(partitionMesh);
-
-          // 6. External Balcony with Glass Railing
-          const balconyGeo = new THREE.BoxGeometry(uWidth * 0.75, 0.1, 1.2);
-          const balconyMat = new THREE.MeshStandardMaterial({
-            color: isDark ? 0x1e293b : 0xcbd5e1,
-            roughness: 0.4,
-          });
-          const balconyMesh = new THREE.Mesh(balconyGeo, balconyMat);
-          const balconyZOffset = rawY > 0.5 ? uDepth / 2 + 0.6 : -uDepth / 2 - 0.6;
-          balconyMesh.position.set(0, -uHeight / 2 + 0.05, balconyZOffset);
-          unitMesh.add(balconyMesh);
-
-          // Balcony Glass Railing
-          const railingGeo = new THREE.BoxGeometry(uWidth * 0.75, 0.7, 0.05);
-          const railingMat = new THREE.MeshStandardMaterial({
-            color: isDark ? 0x38bdf8 : 0x60a5fa,
-            transparent: true,
-            opacity: 0.6,
-            roughness: 0.1,
-          });
-          const railingMesh = new THREE.Mesh(railingGeo, railingMat);
-          railingMesh.position.set(0, 0.4, rawY > 0.5 ? 0.6 : -0.6);
-          balconyMesh.add(railingMesh);
 
           floorLevelGroup.add(unitMesh);
           interactiveMeshesRef.current[`unit-${u.id}`] = unitMesh;
         });
       }
 
-      // Floor Level Text Badge on the side
-      const indicatorGeo = new THREE.BoxGeometry(0.2, 0.6, 1.4);
-      const indicatorMat = new THREE.MeshBasicMaterial({
-        color: isSelectedFloor ? (isDark ? 0x22d3ee : 0x1d4ed8) : isDark ? 0x334155 : 0x64748b,
-      });
-      const indicator = new THREE.Mesh(indicatorGeo, indicatorMat);
-      indicator.position.set(bWidth / 2 + 0.3, floorHeight / 2, 0);
-      floorLevelGroup.add(indicator);
-
       buildingGroup.add(floorLevelGroup);
-      animatedFloorGroups.push({
-        group: floorLevelGroup,
-        targetY: baseY,
-        floorIndex: floorIndex,
-      });
     });
-
-    // Terrace Roof Fixtures (HVAC, Solar Panels, Elevator Core)
-    const roofBaseY = maxAboveIndex * floorHeight + (isExploded ? (maxAboveIndex - 1) * 2.5 : 0);
-    const coreGeo = new THREE.BoxGeometry(4.5, 2.8, 4.5);
-    const coreMat = new THREE.MeshStandardMaterial({ color: isDark ? 0x334155 : 0x94a3b8 });
-    const coreMesh = new THREE.Mesh(coreGeo, coreMat);
-    coreMesh.position.set(0, roofBaseY + 1.4, 0);
-    buildingGroup.add(coreMesh);
 
     scene.add(buildingGroup);
 
-    // 8. Underground Utilities (Pipes rendered when underground layer is active)
-    if (layers.undergroundInfra) {
-      const utilGroup = new THREE.Group();
-      utilGroup.name = 'UndergroundPipes';
-
-      const pipeConfigs = [
-        { color: 0x1d4ed8, radius: 0.35, y: -2.5, z: -8, label: 'Water' },
-        { color: 0xd97706, radius: 0.45, y: -5.0, z: -3, label: 'Sewer' },
-        { color: 0xca8a04, radius: 0.25, y: -1.8, z: 4, label: 'Electric' },
-        { color: 0x0f766e, radius: 0.55, y: -3.5, z: 8, label: 'Stormwater' },
-        { color: 0x7c3aed, radius: 0.22, y: -2.0, z: -12, label: 'Gas' },
-      ];
-
-      pipeConfigs.forEach((p) => {
-        const pipeGeo = new THREE.CylinderGeometry(p.radius, p.radius, 32, 16);
-        const pipeMat = new THREE.MeshStandardMaterial({
-          color: p.color,
-          roughness: 0.2,
-          metalness: 0.5,
-          emissive: new THREE.Color(p.color),
-          emissiveIntensity: 0.25,
-        });
-        const pipeMesh = new THREE.Mesh(pipeGeo, pipeMat);
-        pipeMesh.rotation.z = Math.PI / 2;
-        pipeMesh.position.set(0, p.y, p.z);
-        utilGroup.add(pipeMesh);
-      });
-      scene.add(utilGroup);
-    }
-
-    // 9. Animation & Render Loop with Vertical Stack-Up Reveal
-    const animStartTime = performance.now();
+    // =========================================================================
+    // 10. ANIMATION & ORBIT MOUSE CONTROLS
+    // =========================================================================
     const animate = () => {
       reqAnimRef.current = requestAnimationFrame(animate);
-
-      // Vertical stack-up animation: floors smoothly rise into place sequentially
-      const now = performance.now();
-      const elapsed = now - animStartTime;
-
-      animatedFloorGroups.forEach(({ group, targetY, floorIndex }) => {
-        const normalizedIndex = floorIndex < 0 ? 0 : floorIndex;
-        const staggerDelay = normalizedIndex * 80; // 80ms stagger per floor
-        const duration = 450; // ms
-        const progress = Math.min(1, Math.max(0, (elapsed - staggerDelay) / duration));
-        // Ease-out cubic curve (no bounce)
-        const easeOut = 1 - Math.pow(1 - progress, 3);
-
-        if (targetY > 0) {
-          group.position.y = targetY * easeOut;
-        } else {
-          group.position.y = targetY;
-        }
-      });
-
       renderer.render(scene, camera);
     };
     animate();
 
-    // 10. Resize Observer
-    const handleResize = () => {
-      if (!containerRef.current || !rendererRef.current || !cameraRef.current) return;
-      const w = containerRef.current.clientWidth;
-      const h = containerRef.current.clientHeight;
-      cameraRef.current.aspect = w / h;
-      cameraRef.current.updateProjectionMatrix();
-      rendererRef.current.setSize(w, h);
+    const handleMouseDown = (e: MouseEvent) => {
+      isDraggingRef.current = true;
+      previousMousePositionRef.current = { x: e.clientX, y: e.clientY };
     };
 
-    window.addEventListener('resize', handleResize);
-
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      if (reqAnimRef.current) cancelAnimationFrame(reqAnimRef.current);
-      renderer.dispose();
-      scene.clear();
-    };
-  }, [
-    isDark,
-    selectedBuilding,
-    bldgFloors,
-    units,
-    selectedFloorId,
-    selectedUnitId,
-    isExploded,
-    wireframeMode,
-    layers.undergroundInfra,
-  ]);
-
-  // Pointer event handlers for Orbit, Pan, and Raycasting
-  const handlePointerDown = (e: React.PointerEvent) => {
-    isDraggingRef.current = true;
-    previousMousePositionRef.current = { x: e.clientX, y: e.clientY };
-  };
-
-  const handlePointerMove = (e: React.PointerEvent) => {
-    if (!containerRef.current || !cameraRef.current || !sceneRef.current) return;
-
-    if (isDraggingRef.current) {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDraggingRef.current) return;
       const deltaX = e.clientX - previousMousePositionRef.current.x;
       const deltaY = e.clientY - previousMousePositionRef.current.y;
 
       cameraOrbitRef.current.theta -= deltaX * 0.008;
-      cameraOrbitRef.current.phi += deltaY * 0.008;
+      cameraOrbitRef.current.phi -= deltaY * 0.008;
       updateCameraPosition();
 
       previousMousePositionRef.current = { x: e.clientX, y: e.clientY };
-      return;
-    }
+    };
 
-    // Raycast on hover
-    const rect = containerRef.current.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-    const y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    const handleMouseUp = () => {
+      isDraggingRef.current = false;
+    };
 
-    const raycaster = new THREE.Raycaster();
-    raycaster.setFromCamera(new THREE.Vector2(x, y), cameraRef.current);
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      cameraOrbitRef.current.radius = Math.max(12, Math.min(100, cameraOrbitRef.current.radius + e.deltaY * 0.04));
+      updateCameraPosition();
+    };
 
-    const intersects = raycaster.intersectObjects(sceneRef.current.children, true);
-    let foundLabel = null;
+    const domElem = container;
+    domElem.addEventListener('mousedown', handleMouseDown);
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    domElem.addEventListener('wheel', handleWheel, { passive: false });
 
-    for (const hit of intersects) {
-      const uData = hit.object.userData;
-      if (uData?.type === 'unit') {
-        foundLabel = `Unit ${uData.unitCode} (${uData.ulpin})`;
-        break;
-      } else if (uData?.type === 'floor') {
-        foundLabel = `Floor ${uData.floorCode}`;
-        break;
-      }
-    }
-    setHoveredEntity(foundLabel);
-  };
-
-  const handlePointerUp = (e: React.PointerEvent) => {
-    isDraggingRef.current = false;
-  };
-
-  const handleClick = (e: React.MouseEvent) => {
-    if (!containerRef.current || !cameraRef.current || !sceneRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-    const y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-
-    const raycaster = new THREE.Raycaster();
-    raycaster.setFromCamera(new THREE.Vector2(x, y), cameraRef.current);
-
-    const intersects = raycaster.intersectObjects(sceneRef.current.children, true);
-
-    for (const hit of intersects) {
-      const uData = hit.object.userData;
-      if (uData?.type === 'unit') {
-        setSelectedUnitId(uData.unitId);
-        setSelectedFloorId(uData.floorId);
-        onSelectUnit?.(uData.unitId);
-        return;
-      }
-      if (uData?.type === 'floor') {
-        setSelectedFloorId(uData.floorId);
-        onSelectFloor?.(uData.floorId);
-        return;
-      }
-    }
-  };
-
-  const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
-    cameraOrbitRef.current.radius = Math.max(12, Math.min(80, cameraOrbitRef.current.radius + e.deltaY * 0.03));
-    updateCameraPosition();
-  };
+    return () => {
+      if (reqAnimRef.current) cancelAnimationFrame(reqAnimRef.current);
+      domElem.removeEventListener('mousedown', handleMouseDown);
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      domElem.removeEventListener('wheel', handleWheel);
+    };
+  }, [isDark, selectedBuilding, bldgFloors, units, utilities, selectedFloorId, selectedUnitId, layers, isExploded, wireframeMode]);
 
   return (
-    <div
-      className={`relative w-full h-full select-none overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 ${
-        isFullscreen ? 'fixed inset-0 z-50 rounded-none' : ''
-      }`}
-      onWheel={handleWheel}
-    >
-      {/* 3D WebGL Canvas */}
-      <div
-        ref={containerRef}
-        className="w-full h-full cursor-grab active:cursor-grabbing"
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerLeave={handlePointerUp}
-        onClick={handleClick}
-      />
-
-      {/* Top Billboard Badge (ULPIN Identifier) */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-600/90 hover:bg-blue-600 text-white text-xs font-semibold shadow-lg shadow-blue-500/20 backdrop-blur-md transition-all border border-blue-400/40">
-        <Sparkles className="w-3.5 h-3.5 text-cyan-200" />
-        <span className="font-mono tracking-wide">
-          {selectedBuilding?.buildingName || 'Astra Heights'} (ULPIN: {selectedBuilding?.parcelId ? 'KA-BLR-2024-0001-0001' : '27101500123456'})
-        </span>
-      </div>
-
-      {/* Hover Info Tooltip */}
-      {hoveredEntity && (
-        <div className="absolute bottom-16 left-1/2 -translate-x-1/2 pointer-events-none px-3 py-1 rounded bg-slate-900/90 text-cyan-300 text-xs font-mono shadow-md border border-slate-700 backdrop-blur">
-          {hoveredEntity}
-        </div>
-      )}
-
-      {/* Bottom 3D Toolbar matching mockup */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900/85 text-slate-200 border border-slate-700/80 shadow-xl backdrop-blur-md">
-        <button
-          onClick={resetCamera}
-          title="Reset Camera"
-          className="p-1.5 hover:bg-slate-800 rounded text-slate-300 hover:text-white transition-colors"
-        >
-          <RotateCcw className="w-4 h-4" />
-        </button>
-
-        <div className="w-px h-4 bg-slate-700" />
-
-        <button
-          onClick={() => setIsExploded((prev) => !prev)}
-          title="Explode Floors View"
-          className={`p-1.5 rounded transition-colors flex items-center gap-1 text-xs font-medium ${
-            isExploded ? 'bg-blue-600 text-white' : 'hover:bg-slate-800 text-slate-300'
-          }`}
-        >
-          <Layers className="w-4 h-4" />
-          <span className="hidden sm:inline">Explode</span>
-        </button>
-
-        <button
-          onClick={() => setWireframeMode((prev) => !prev)}
-          title="Toggle Wireframe / Solid"
-          className={`p-1.5 rounded transition-colors ${
-            wireframeMode ? 'bg-blue-600 text-white' : 'hover:bg-slate-800 text-slate-300'
-          }`}
-        >
-          <Box className="w-4 h-4" />
-        </button>
-
-        <div className="w-px h-4 bg-slate-700" />
-
-        <button
-          onClick={() => setIsFullscreen((prev) => !prev)}
-          title="Fullscreen Toggle"
-          className="p-1.5 hover:bg-slate-800 rounded text-slate-300 hover:text-white transition-colors"
-        >
-          {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-        </button>
-      </div>
-
-      {/* Compass / Orientation badge */}
-      <div className="absolute top-4 right-4 flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-900/70 text-slate-300 text-[11px] font-mono border border-slate-700 backdrop-blur">
-        <Compass className="w-3.5 h-3.5 text-blue-400" />
-        <span>N 38° E</span>
-      </div>
-
-      {/* Legend for Floor Levels on Left */}
-      <div className="absolute top-4 left-4 hidden md:flex flex-col gap-1 p-2 rounded-lg bg-slate-900/80 border border-slate-800 backdrop-blur text-[11px] text-slate-300">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1">
-          Levels
-        </span>
-        {bldgFloors.slice(0, 9).map((fl) => (
-          <button
-            key={fl.id}
-            onClick={() => {
-              setSelectedFloorId(fl.id);
-              onSelectFloor?.(fl.id);
-            }}
-            className={`flex items-center justify-between gap-2 px-2 py-0.5 rounded text-left transition-colors ${
-              fl.id === selectedFloorId
-                ? 'bg-blue-600 text-white font-semibold'
-                : 'hover:bg-slate-800 text-slate-300'
-            }`}
-          >
-            <span>{fl.floorCode}</span>
-            <span
-              className="w-2 h-2 rounded-full"
-              style={{ backgroundColor: fl.colorHex || '#38bdf8' }}
-            />
-          </button>
-        ))}
+    <div ref={containerRef} className="w-full h-full relative cursor-grab active:cursor-grabbing">
+      {/* 3D Scene Controls Badge */}
+      <div className="absolute bottom-4 right-4 bg-slate-900/80 backdrop-blur-md text-white px-3 py-1.5 rounded-lg text-[10px] font-mono border border-slate-700 z-10 flex items-center gap-2">
+        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+        <span>WebGL 3D Engine • Basements, Parking, Elevated & Pipeline Layer Active</span>
       </div>
     </div>
   );

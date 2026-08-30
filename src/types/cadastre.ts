@@ -55,6 +55,12 @@ export interface Building {
   yearBuilt: number;
   structureType: string;
   footprintGeoJSON?: any;
+  
+  // 3D Extensions
+  parkingSpacesCount?: number;
+  elevatedStructuresCount?: number;
+  undergroundSpacesCount?: number;
+  utilityTunnelsCount?: number;
 }
 
 export interface Floor {
@@ -71,6 +77,9 @@ export interface Floor {
   validationMessage?: string;
   unitCount: number;
   colorHex: string;
+  isBasement?: boolean;
+  isElevated?: boolean;
+  usageType?: 'Residential' | 'Commercial' | 'Basement Parking' | 'Elevated Structure' | 'Underground Storage' | 'Utility Tunnel' | string;
 }
 
 export interface Unit {
@@ -83,13 +92,14 @@ export interface Unit {
   floorCode: string;
   full3DULPIN: string;
   parentParcelULPIN: string;
-  unitType: string;
+  unitType: '2BHK' | '3BHK' | 'Penthouse' | 'Commercial Studio' | 'Parking Space' | 'Elevated Structure' | 'Underground Storage Vault' | 'Utility Room' | string;
   carpetAreaSqM: number;
   builtUpAreaSqM: number;
-  usage: 'Residential' | 'Commercial' | 'Utility' | 'Common Area';
+  usage: 'Residential' | 'Commercial' | 'Utility' | 'Common Area' | 'Parking' | 'Elevated Facility' | 'Subterranean Vault' | string;
   sharePercentageOfLand: number;
   status: VerificationStatus;
   colorHex: string;
+  
   relativeBounds: {
     x: number;
     y: number;
@@ -98,6 +108,48 @@ export interface Unit {
   };
   polygon: [number, number][];
   rooms?: Array<{ name: string; areaSqM: number }>;
+
+  // Specialized attributes for parking, elevated & underground structures
+  parkingSlotNo?: string;
+  vehicleType?: '4-Wheeler SUV' | '4-Wheeler Sedan' | '2-Wheeler' | 'EV Charging Slot' | string;
+  elevatedStructureType?: 'Elevator Machine Tower' | 'Overhead Water Tank' | 'Rooftop Solar Array' | 'Rooftop Helipad / Skydeck' | 'Skywalk Bridge' | string;
+  undergroundSpaceType?: 'Subterranean Storage Vault' | 'Sump Tank & Water Pump Room' | 'Electrical Transformer Substation' | 'Utility Tunnel Shaft' | string;
+}
+
+export interface ParkingSpace {
+  id: string;
+  slotNumber: string;
+  basementLevel: string;
+  vehicleType: string;
+  areaSqM: number;
+  assignedUnitId?: string;
+  full3DULPIN: string;
+}
+
+export interface ElevatedStructure {
+  id: string;
+  name: string;
+  type: string;
+  elevationHeightM: number;
+  footprintAreaSqM: number;
+  full3DULPIN: string;
+}
+
+export interface UndergroundSpace {
+  id: string;
+  name: string;
+  depthM: number;
+  volumeCuM: number;
+  full3DULPIN: string;
+}
+
+export interface UtilityTunnel {
+  id: string;
+  tunnelCode: string;
+  depthM: number;
+  lengthM: number;
+  conduitTypes: string[];
+  full3DULPIN: string;
 }
 
 export interface OwnershipRecord {
@@ -119,8 +171,6 @@ export interface OwnershipRecord {
 
 export interface UndergroundUtility {
   id: string;
-  buildingId?: string;
-  parcelId?: string;
   type: 'Water Pipeline' | 'Sewer Line' | 'Electric Cable' | 'Storm Water Drain' | 'Gas Pipeline';
   name: string;
   depthM: number;
@@ -181,6 +231,12 @@ export interface LayerVisibilityState {
   stormWater: boolean;
   gasPipeline: boolean;
   cadastralLabels: boolean;
+  
+  // 3D Extension Layers
+  parkingSpaces: boolean;
+  elevatedStructures: boolean;
+  undergroundSpaces: boolean;
+  utilityTunnels: boolean;
 }
 
 export function generateULPIN(
@@ -189,7 +245,7 @@ export function generateULPIN(
   floorCode: string,
   unitCode: string
 ): string {
-  const cleanFloor = floorCode.startsWith('F') ? floorCode : `F${floorCode}`;
-  const cleanUnit = unitCode.startsWith('U') ? unitCode : `U${unitCode}`;
+  const cleanFloor = floorCode.startsWith('F') || floorCode.startsWith('B') || floorCode.startsWith('TER') || floorCode.startsWith('E') ? floorCode : `F${floorCode}`;
+  const cleanUnit = unitCode.startsWith('U') || unitCode.startsWith('P') || unitCode.startsWith('E') || unitCode.startsWith('V') || unitCode.startsWith('T') ? unitCode : `U${unitCode}`;
   return `${parcelULPIN}-${buildingCode.toUpperCase()}-${cleanFloor}-${cleanUnit}`;
 }

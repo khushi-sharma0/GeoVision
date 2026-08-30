@@ -6,12 +6,11 @@ import {
   OwnershipRecord,
   UndergroundUtility,
   OwnershipConflict,
-  AISegmentationResult,
 } from '../types/cadastre';
 import { generateULPIN } from '../utils/ulpinGenerator';
 
-// Synthetic Owner Names
-const SYNTHETIC_OWNER_NAMES = [
+// List of realistic unique Indian synthetic owner names to ensure NO unit shares an owner
+export const SYNTHETIC_OWNER_NAMES = [
   'Vikram Singh',
   'Sunita Godbole',
   'Aarav Mehta',
@@ -40,297 +39,637 @@ const SYNTHETIC_OWNER_NAMES = [
   'Shruti Mahajan',
   'Manish Tiwari',
   'Deepa Sundaram',
+  'Varun Agrawal',
+  'Swati Deshpande',
+  'Gaurav Trivedi',
+  'Poonam Soni',
 ];
 
-interface RawBuildingConfig {
-  parcelId: string;
-  ulpin: string;
-  localParcelId: string;
-  locationName: string;
-  city: string;
-  lat: number;
-  lng: number;
-  areaSqM: number;
-  landUse: 'Residential' | 'Commercial' | 'Mixed Use';
-  surveyNumber: string;
-  village: string;
-  taluk: string;
-  district: string;
-  buildingId: string;
-  buildingCode: string;
-  buildingName: string;
-  buildingType: string;
-  floorsCount: number;
-  basementsCount: number;
-  floorHeightM: number;
-  footprintAreaSqM: number;
-  yearBuilt: number;
-  structureType: string;
-  unitsPerFloor: number;
-}
-
-// Exactly 3 Distinct Properties (Mumbai, Pune, Nagpur)
-const RAW_PROPERTIES: RawBuildingConfig[] = [
-  // 1. Mumbai - Worli
+// =============================================================================
+// INITIAL PARCELS (2D GIS Cadastral Land Boundaries)
+// =============================================================================
+export const INITIAL_PARCELS: Parcel[] = [
   {
-    parcelId: 'parcel-1',
-    ulpin: '27101500123456',
-    localParcelId: 'MUM-WOR-0001',
-    locationName: 'Dr. Annie Besant Road, Worli, Mumbai',
+    id: 'parcel-1',
+    ulpin: '27101500984123',
+    localParcelId: 'P-2024-8891',
+    locationName: 'Worli Sea Face, Mumbai, Maharashtra',
     city: 'Mumbai',
-    lat: 19.0178,
-    lng: 72.8178,
+    latitude: 19.0178,
+    longitude: 72.8178,
     areaSqM: 1450.0,
     landUse: 'Residential',
-    surveyNumber: 'CS No. 44/2A',
-    village: 'Worli',
-    taluk: 'Mumbai City',
-    district: 'Mumbai',
-    buildingId: 'bldg-1',
-    buildingCode: 'BA',
-    buildingName: 'Harbour Heights',
-    buildingType: 'Luxury Apartment Tower',
-    floorsCount: 6,
-    basementsCount: 2,
-    floorHeightM: 3.2,
-    footprintAreaSqM: 820.0,
-    yearBuilt: 2023,
-    structureType: 'RCC Framed Multi-Storey Tower',
-    unitsPerFloor: 4,
-  },
-  // 2. Pune - Hinjewadi
-  {
-    parcelId: 'parcel-14',
-    ulpin: '27101500123469',
-    localParcelId: 'PUN-HIN-0014',
-    locationName: 'Phase 1, Hinjewadi Infotech Park, Pune',
-    city: 'Pune',
-    lat: 18.5913,
-    lng: 73.7389,
-    areaSqM: 2650.0,
-    landUse: 'Mixed Use',
-    surveyNumber: 'Sy. No. 280/1',
-    village: 'Hinjewadi',
-    taluk: 'Mulshi',
-    district: 'Pune',
-    buildingId: 'bldg-14',
-    buildingCode: 'BN',
-    buildingName: 'Pune Tech Residences',
-    buildingType: 'IT Commercial / Mixed-Use',
-    floorsCount: 6,
-    basementsCount: 2,
-    floorHeightM: 3.2,
-    footprintAreaSqM: 1150.0,
-    yearBuilt: 2023,
-    structureType: 'Composite Steel & Glass Curtain Wall',
-    unitsPerFloor: 4,
-  },
-  // 3. Nagpur - Civil Lines
-  {
-    parcelId: 'parcel-16',
-    ulpin: '27101500123471',
-    localParcelId: 'NAG-CIV-0016',
-    locationName: 'Palm Road, Civil Lines, Nagpur',
-    city: 'Nagpur',
-    lat: 21.1524,
-    lng: 79.0688,
-    areaSqM: 1720.0,
-    landUse: 'Residential',
-    surveyNumber: 'Khasra No. 88/1',
-    village: 'Civil Station',
-    taluk: 'Nagpur Urban',
-    district: 'Nagpur',
-    buildingId: 'bldg-16',
-    buildingCode: 'BP',
-    buildingName: 'Nagpur Central Residency',
-    buildingType: 'Residential Complex',
-    floorsCount: 5,
-    basementsCount: 1,
-    floorHeightM: 3.0,
-    footprintAreaSqM: 750.0,
-    yearBuilt: 2022,
-    structureType: 'RCC Framed Multi-Storey',
-    unitsPerFloor: 4,
-  },
-];
-
-let ownerNameIndex = 0;
-function getNextUniqueOwnerName(): string {
-  const name = SYNTHETIC_OWNER_NAMES[ownerNameIndex % SYNTHETIC_OWNER_NAMES.length];
-  ownerNameIndex++;
-  return name;
-}
-
-export const INITIAL_PARCELS: Parcel[] = [];
-export const INITIAL_BUILDINGS: Building[] = [];
-export const INITIAL_FLOORS: Floor[] = [];
-export const INITIAL_UNITS: Unit[] = [];
-export const INITIAL_OWNERSHIPS: OwnershipRecord[] = [];
-
-RAW_PROPERTIES.forEach((prop) => {
-  INITIAL_PARCELS.push({
-    id: prop.parcelId,
-    ulpin: prop.ulpin,
-    localParcelId: prop.localParcelId,
-    locationName: prop.locationName,
-    city: prop.city,
-    latitude: prop.lat,
-    longitude: prop.lng,
-    areaSqM: prop.areaSqM,
-    landUse: prop.landUse,
     buildingCount: 1,
     status: 'Verified',
     crs: 'EPSG:4326 - WGS84',
-    surveyNumber: prop.surveyNumber,
-    village: prop.village,
-    taluk: prop.taluk,
-    district: prop.district,
+    surveyNumber: 'CS No. 102/4A',
+    village: 'Worli',
+    taluk: 'Mumbai City',
+    district: 'Mumbai',
     boundaryGeoJSON: {
       type: 'Feature',
       geometry: {
         type: 'Polygon',
         coordinates: [
           [
-            [prop.lng - 0.0008, prop.lat - 0.0006],
-            [prop.lng + 0.0008, prop.lat - 0.0005],
-            [prop.lng + 0.0006, prop.lat + 0.0007],
-            [prop.lng - 0.0007, prop.lat + 0.0006],
-            [prop.lng - 0.0008, prop.lat - 0.0006],
+            [72.8172, 19.0172],
+            [72.8184, 19.0172],
+            [72.8184, 19.0184],
+            [72.8172, 19.0184],
+            [72.8172, 19.0172],
           ],
         ],
       },
-      properties: { name: `${prop.buildingName} Land Parcel` },
+      properties: { name: 'Worli Heights Parcel' },
     },
-  });
-
-  INITIAL_BUILDINGS.push({
-    id: prop.buildingId,
-    parcelId: prop.parcelId,
-    buildingCode: prop.buildingCode,
-    buildingName: prop.buildingName,
-    city: prop.city,
-    location: prop.locationName,
-    buildingType: prop.buildingType,
-    numberOfFloors: prop.floorsCount,
-    numberOfBasements: prop.basementsCount,
-    floorHeightM: prop.floorHeightM,
-    buildingHeightM: prop.floorsCount * prop.floorHeightM,
-    footprintAreaSqM: prop.footprintAreaSqM,
-    yearBuilt: prop.yearBuilt,
-    structureType: prop.structureType,
-  });
-
-  for (let f = 1; f <= prop.floorsCount; f++) {
-    const floorId = `floor-${prop.buildingId}-${f}`;
-    const fCode = `F${f}`;
-    const floorArea = prop.footprintAreaSqM * 0.95;
-
-    INITIAL_FLOORS.push({
-      id: floorId,
-      buildingId: prop.buildingId,
-      buildingCode: prop.buildingCode,
-      floorCode: fCode,
-      floorName: `Floor ${f}`,
-      floorIndex: f,
-      zLevelM: (f - 1) * prop.floorHeightM,
-      totalFloorAreaSqM: floorArea,
-      measuredUnitAreaSumSqM: floorArea,
-      validationStatus: 'VALID',
-      unitCount: prop.unitsPerFloor,
-      colorHex: f % 2 === 0 ? '#3b82f6' : '#22c55e',
-    });
-
-    for (let u = 1; u <= prop.unitsPerFloor; u++) {
-      const unitId = `unit-${prop.buildingId}-${f}-${u}`;
-      const unitNum = `${f}0${u}`;
-      const unitCode = `${fCode}-${unitNum}`;
-      const fullUlpin = generateULPIN(prop.ulpin, prop.buildingCode, fCode, `U0${u}`);
-      const carpet = floorArea / prop.unitsPerFloor - 12;
-
-      INITIAL_UNITS.push({
-        id: unitId,
-        unitNumber: unitNum,
-        unitCode: unitCode,
-        buildingId: prop.buildingId,
-        buildingCode: prop.buildingCode,
-        floorId: floorId,
-        floorCode: fCode,
-        full3DULPIN: fullUlpin,
-        parentParcelULPIN: prop.ulpin,
-        unitType: u % 2 === 0 ? '3BHK Executive' : '2BHK Luxury',
-        carpetAreaSqM: Math.round(carpet),
-        builtUpAreaSqM: Math.round(carpet * 1.15),
-        usage: 'Residential',
-        sharePercentageOfLand: +(100 / (prop.floorsCount * prop.unitsPerFloor)).toFixed(2),
-        status: 'Verified',
-        colorHex: '#3b82f6',
-        relativeBounds: {
-          x: (u - 1) % 2 === 0 ? 0.05 : 0.52,
-          y: u > 2 ? 0.52 : 0.05,
-          w: 0.43,
-          d: 0.43,
-        },
-        polygon: [[10, 10], [90, 10], [90, 90], [10, 90]],
-      });
-
-      const ownerName = getNextUniqueOwnerName();
-      INITIAL_OWNERSHIPS.push({
-        id: `own-${unitId}`,
-        unitId: unitId,
-        unitCode: unitCode,
-        ownerName: ownerName,
-        ownerType: 'Individual',
-        ownershipPercentage: 100,
-        ownershipType: 'Freehold',
-        docRefNo: `DOC-2023-MH-${Math.floor(10000 + Math.random() * 90000)}`,
-        registrationDate: '2023-04-15',
-        verificationStatus: 'Verified',
-        contactEmail: `${ownerName.toLowerCase().replace(/\s+/g, '.')}@geovision.gov.in`,
-        nationalIdMasked: `XXXX-XXXX-${Math.floor(1000 + Math.random() * 9000)}`,
-        mortgageStatus: 'None',
-      });
-    }
-  }
-});
-
-export const INITIAL_CONFLICTS: OwnershipConflict[] = [
+  },
   {
-    id: 'conf-1',
-    unitId: 'unit-bldg-1-3-3',
-    unitCode: 'F3-303',
-    buildingName: 'Harbour Heights',
-    parentULPIN: '27101500123456',
-    unit3DULPIN: '27101500123456-BA-F3-U03',
-    severity: 'High',
-    issueType: 'Multiple Ownership Records',
-    description: 'Double conveyance claim registered on unit F3-303 by rival deeds.',
-    conflictingParties: ['Aarav Mehta', 'Rohan Deshmukh'],
-    docRefNumbers: ['DOC-2023-MH-8891', 'DOC-2023-MH-9942'],
-    reportedDate: '2024-02-10',
-    status: 'Open',
+    id: 'parcel-2',
+    ulpin: '27101500441920',
+    localParcelId: 'P-2024-4412',
+    locationName: 'Bandra Kurla Complex (BKC), Mumbai',
+    city: 'Mumbai',
+    latitude: 19.0657,
+    longitude: 72.8686,
+    areaSqM: 2800.0,
+    landUse: 'Commercial',
+    buildingCount: 1,
+    status: 'Verified',
+    crs: 'EPSG:4326 - WGS84',
+    surveyNumber: 'CS No. 408/B',
+    village: 'Bandra East',
+    taluk: 'Bandra',
+    district: 'Mumbai Suburban',
+    boundaryGeoJSON: {
+      type: 'Feature',
+      geometry: {
+        type: 'Polygon',
+        coordinates: [
+          [
+            [72.8680, 19.0650],
+            [72.8692, 19.0650],
+            [72.8692, 19.0664],
+            [72.8680, 19.0664],
+            [72.8680, 19.0650],
+          ],
+        ],
+      },
+      properties: { name: 'BKC Financial Center' },
+    },
   },
 ];
 
+// =============================================================================
+// INITIAL BUILDINGS (Multi-Storey 3D Structural Footprints)
+// =============================================================================
+export const INITIAL_BUILDINGS: Building[] = [
+  {
+    id: 'bldg-1',
+    parcelId: 'parcel-1',
+    buildingCode: 'BA',
+    buildingName: 'SeaBreeze Strata Tower',
+    city: 'Mumbai',
+    location: 'Worli Sea Face, Mumbai',
+    buildingType: 'Luxury High-Rise Residential Tower',
+    numberOfFloors: 6,
+    numberOfBasements: 2,
+    floorHeightM: 3.0,
+    buildingHeightM: 18.0,
+    footprintAreaSqM: 850.0,
+    yearBuilt: 2023,
+    structureType: 'RCC Framed Multi-Storey',
+    parkingSpacesCount: 24,
+    elevatedStructuresCount: 3,
+    undergroundSpacesCount: 2,
+    utilityTunnelsCount: 1,
+  },
+  {
+    id: 'bldg-2',
+    parcelId: 'parcel-2',
+    buildingCode: 'BC',
+    buildingName: 'Horizon Commercial Plaza',
+    city: 'Mumbai',
+    location: 'BKC, Mumbai',
+    buildingType: 'Commercial Corporate Headquarters',
+    numberOfFloors: 8,
+    numberOfBasements: 3,
+    floorHeightM: 3.5,
+    buildingHeightM: 28.0,
+    footprintAreaSqM: 1600.0,
+    yearBuilt: 2024,
+    structureType: 'Composite Steel & Glass Curtain',
+    parkingSpacesCount: 48,
+    elevatedStructuresCount: 4,
+    undergroundSpacesCount: 3,
+    utilityTunnelsCount: 2,
+  },
+];
+
+// =============================================================================
+// INITIAL FLOORS (Basements B1/B2, Ground F1-F6, Terrace TER)
+// =============================================================================
+export const INITIAL_FLOORS: Floor[] = [
+  // Basements
+  {
+    id: 'fl-bldg1-b2',
+    buildingId: 'bldg-1',
+    buildingCode: 'BA',
+    floorCode: 'B2',
+    floorName: 'Basement Level 2 — Heavy Vehicle Parking & Sump Room',
+    floorIndex: -2,
+    zLevelM: -6.0,
+    totalFloorAreaSqM: 850.0,
+    measuredUnitAreaSumSqM: 850.0,
+    validationStatus: 'VALID',
+    unitCount: 8,
+    colorHex: '#0284c7',
+    isBasement: true,
+    usageType: 'Basement Parking',
+  },
+  {
+    id: 'fl-bldg1-b1',
+    buildingId: 'bldg-1',
+    buildingCode: 'BA',
+    floorCode: 'B1',
+    floorName: 'Basement Level 1 — Resident Parking & EV Charging Bays',
+    floorIndex: -1,
+    zLevelM: -3.0,
+    totalFloorAreaSqM: 850.0,
+    measuredUnitAreaSumSqM: 850.0,
+    validationStatus: 'VALID',
+    unitCount: 10,
+    colorHex: '#0284c7',
+    isBasement: true,
+    usageType: 'Basement Parking',
+  },
+  // Above-Ground Floors
+  {
+    id: 'fl-bldg1-1',
+    buildingId: 'bldg-1',
+    buildingCode: 'BA',
+    floorCode: 'F1',
+    floorName: '1st Floor — Residential & Lobby',
+    floorIndex: 1,
+    zLevelM: 0.0,
+    totalFloorAreaSqM: 820.0,
+    measuredUnitAreaSumSqM: 820.0,
+    validationStatus: 'VALID',
+    unitCount: 4,
+    colorHex: '#3b82f6',
+  },
+  {
+    id: 'fl-bldg1-2',
+    buildingId: 'bldg-1',
+    buildingCode: 'BA',
+    floorCode: 'F2',
+    floorName: '2nd Floor — Residential Apartments',
+    floorIndex: 2,
+    zLevelM: 3.0,
+    totalFloorAreaSqM: 820.0,
+    measuredUnitAreaSumSqM: 820.0,
+    validationStatus: 'VALID',
+    unitCount: 4,
+    colorHex: '#22c55e',
+  },
+  {
+    id: 'fl-bldg1-3',
+    buildingId: 'bldg-1',
+    buildingCode: 'BA',
+    floorCode: 'F3',
+    floorName: '3rd Floor — Executive Residencies',
+    floorIndex: 3,
+    zLevelM: 6.0,
+    totalFloorAreaSqM: 820.0,
+    measuredUnitAreaSumSqM: 820.0,
+    validationStatus: 'VALID',
+    unitCount: 4,
+    colorHex: '#3b82f6',
+  },
+  {
+    id: 'fl-bldg1-4',
+    buildingId: 'bldg-1',
+    buildingCode: 'BA',
+    floorCode: 'F4',
+    floorName: '4th Floor — Residential Suites',
+    floorIndex: 4,
+    zLevelM: 9.0,
+    totalFloorAreaSqM: 1000.0,
+    measuredUnitAreaSumSqM: 1175.0,
+    validationStatus: 'AREA_MISMATCH',
+    validationMessage: 'Sum of units (1,175 m²) exceeds registered floor area (1,000 m²)',
+    unitCount: 4,
+    colorHex: '#eab308',
+  },
+  {
+    id: 'fl-bldg1-5',
+    buildingId: 'bldg-1',
+    buildingCode: 'BA',
+    floorCode: 'F5',
+    floorName: '5th Floor — Luxury Penthouse Level',
+    floorIndex: 5,
+    zLevelM: 12.0,
+    totalFloorAreaSqM: 820.0,
+    measuredUnitAreaSumSqM: 820.0,
+    validationStatus: 'VALID',
+    unitCount: 4,
+    colorHex: '#8b5cf6',
+  },
+  // Terrace Level
+  {
+    id: 'fl-bldg1-ter',
+    buildingId: 'bldg-1',
+    buildingCode: 'BA',
+    floorCode: 'TER',
+    floorName: 'Terrace Level — Solar Grid, Helipad & Elevated Water Tank',
+    floorIndex: 6,
+    zLevelM: 18.0,
+    totalFloorAreaSqM: 820.0,
+    measuredUnitAreaSumSqM: 485.0,
+    validationStatus: 'VALID',
+    unitCount: 3,
+    colorHex: '#eab308',
+    isElevated: true,
+    usageType: 'Elevated Structure',
+  },
+];
+
+// =============================================================================
+// INITIAL UNITS (Flats, Parking Spaces, Elevated Structures, Vaults)
+// =============================================================================
+export const INITIAL_UNITS: Unit[] = [
+  // 1. BASEMENT PARKING SPACES & VAULTS (B1)
+  {
+    id: 'u-bldg1-b1-p01',
+    unitNumber: 'P-B1-01',
+    unitCode: 'B1-P01',
+    buildingId: 'bldg-1',
+    buildingCode: 'BA',
+    floorId: 'fl-bldg1-b1',
+    floorCode: 'B1',
+    full3DULPIN: generateULPIN('27101500984123', 'BA', 'B1', 'P01'),
+    parentParcelULPIN: '27101500984123',
+    unitType: 'Parking Space',
+    carpetAreaSqM: 18.5,
+    builtUpAreaSqM: 22.0,
+    usage: 'Parking',
+    sharePercentageOfLand: 0.45,
+    status: 'Verified',
+    colorHex: '#0284c7',
+    relativeBounds: { x: 0.05, y: 0.08, w: 0.28, d: 0.38 },
+    polygon: [[10, 10], [90, 10], [90, 90], [10, 90]],
+    parkingSlotNo: 'P-B1-01',
+    vehicleType: '4-Wheeler SUV',
+  },
+  {
+    id: 'u-bldg1-b1-p02',
+    unitNumber: 'P-B1-02',
+    unitCode: 'B1-P02',
+    buildingId: 'bldg-1',
+    buildingCode: 'BA',
+    floorId: 'fl-bldg1-b1',
+    floorCode: 'B1',
+    full3DULPIN: generateULPIN('27101500984123', 'BA', 'B1', 'P02'),
+    parentParcelULPIN: '27101500984123',
+    unitType: 'Parking Space',
+    carpetAreaSqM: 18.5,
+    builtUpAreaSqM: 22.0,
+    usage: 'Parking',
+    sharePercentageOfLand: 0.45,
+    status: 'Verified',
+    colorHex: '#0284c7',
+    relativeBounds: { x: 0.36, y: 0.08, w: 0.28, d: 0.38 },
+    polygon: [[10, 10], [90, 10], [90, 90], [10, 90]],
+    parkingSlotNo: 'P-B1-02',
+    vehicleType: 'EV Charging Slot',
+  },
+  {
+    id: 'u-bldg1-b1-v01',
+    unitNumber: 'V-B1-01',
+    unitCode: 'B1-V01',
+    buildingId: 'bldg-1',
+    buildingCode: 'BA',
+    floorId: 'fl-bldg1-b1',
+    floorCode: 'B1',
+    full3DULPIN: generateULPIN('27101500984123', 'BA', 'B1', 'V01'),
+    parentParcelULPIN: '27101500984123',
+    unitType: 'Underground Storage Vault',
+    carpetAreaSqM: 95.0,
+    builtUpAreaSqM: 110.0,
+    usage: 'Subterranean Vault',
+    sharePercentageOfLand: 1.25,
+    status: 'Verified',
+    colorHex: '#6366f1',
+    relativeBounds: { x: 0.05, y: 0.55, w: 0.42, d: 0.38 },
+    polygon: [[10, 10], [90, 10], [90, 90], [10, 90]],
+    undergroundSpaceType: 'Sump Tank & Water Pump Room',
+  },
+
+  // 2. RESIDENTIAL UNITS (F3)
+  {
+    id: 'u-bldg1-3-301',
+    unitNumber: '301',
+    unitCode: 'F3-301',
+    buildingId: 'bldg-1',
+    buildingCode: 'BA',
+    floorId: 'fl-bldg1-3',
+    floorCode: 'F3',
+    full3DULPIN: generateULPIN('27101500984123', 'BA', 'F3', 'U01'),
+    parentParcelULPIN: '27101500984123',
+    unitType: '2BHK Luxury',
+    carpetAreaSqM: 130.0,
+    builtUpAreaSqM: 145.6,
+    usage: 'Residential',
+    sharePercentageOfLand: 4.16,
+    status: 'Verified',
+    colorHex: '#3b82f6',
+    relativeBounds: { x: 0.05, y: 0.05, w: 0.43, d: 0.43 },
+    polygon: [[10, 10], [90, 10], [90, 90], [10, 90]],
+    rooms: [
+      { name: 'Living Room & Dining', areaSqM: 42.0 },
+      { name: 'Master Bedroom', areaSqM: 28.0 },
+      { name: 'Bedroom 2', areaSqM: 22.0 },
+      { name: 'Kitchen & Utility', areaSqM: 18.0 },
+      { name: 'Balcony', areaSqM: 20.0 },
+    ],
+  },
+  {
+    id: 'u-bldg1-3-302',
+    unitNumber: '302',
+    unitCode: 'F3-302',
+    buildingId: 'bldg-1',
+    buildingCode: 'BA',
+    floorId: 'fl-bldg1-3',
+    floorCode: 'F3',
+    full3DULPIN: generateULPIN('27101500984123', 'BA', 'F3', 'U02'),
+    parentParcelULPIN: '27101500984123',
+    unitType: '2BHK Luxury',
+    carpetAreaSqM: 135.0,
+    builtUpAreaSqM: 151.2,
+    usage: 'Residential',
+    sharePercentageOfLand: 4.32,
+    status: 'Verified',
+    colorHex: '#10b981',
+    relativeBounds: { x: 0.52, y: 0.05, w: 0.43, d: 0.43 },
+    polygon: [[10, 10], [90, 10], [90, 90], [10, 90]],
+  },
+  {
+    id: 'u-bldg1-3-303',
+    unitNumber: '303',
+    unitCode: 'F3-303',
+    buildingId: 'bldg-1',
+    buildingCode: 'BA',
+    floorId: 'fl-bldg1-3',
+    floorCode: 'F3',
+    full3DULPIN: generateULPIN('27101500984123', 'BA', 'F3', 'U03'),
+    parentParcelULPIN: '27101500984123',
+    unitType: '3BHK Executive',
+    carpetAreaSqM: 165.0,
+    builtUpAreaSqM: 184.8,
+    usage: 'Residential',
+    sharePercentageOfLand: 5.28,
+    status: 'Flagged',
+    colorHex: '#f59e0b',
+    relativeBounds: { x: 0.05, y: 0.52, w: 0.43, d: 0.43 },
+    polygon: [[10, 10], [90, 10], [90, 90], [10, 90]],
+  },
+  {
+    id: 'u-bldg1-3-304',
+    unitNumber: '304',
+    unitCode: 'F3-304',
+    buildingId: 'bldg-1',
+    buildingCode: 'BA',
+    floorId: 'fl-bldg1-3',
+    floorCode: 'F3',
+    full3DULPIN: generateULPIN('27101500984123', 'BA', 'F3', 'U04'),
+    parentParcelULPIN: '27101500984123',
+    unitType: '3BHK Executive',
+    carpetAreaSqM: 170.0,
+    builtUpAreaSqM: 190.4,
+    usage: 'Residential',
+    sharePercentageOfLand: 5.44,
+    status: 'Verified',
+    colorHex: '#8b5cf6',
+    relativeBounds: { x: 0.52, y: 0.52, w: 0.43, d: 0.43 },
+    polygon: [[10, 10], [90, 10], [90, 90], [10, 90]],
+  },
+
+  // 3. ELEVATED TERRACE STRUCTURES (TER)
+  {
+    id: 'u-bldg1-ter-e01',
+    unitNumber: 'E-01',
+    unitCode: 'TER-E01',
+    buildingId: 'bldg-1',
+    buildingCode: 'BA',
+    floorId: 'fl-bldg1-ter',
+    floorCode: 'TER',
+    full3DULPIN: generateULPIN('27101500984123', 'BA', 'TER', 'E01'),
+    parentParcelULPIN: '27101500984123',
+    unitType: 'Elevated Structure',
+    carpetAreaSqM: 180.0,
+    builtUpAreaSqM: 195.0,
+    usage: 'Elevated Facility',
+    sharePercentageOfLand: 0.0,
+    status: 'Verified',
+    colorHex: '#eab308',
+    relativeBounds: { x: 0.05, y: 0.1, w: 0.3, d: 0.75 },
+    polygon: [[10, 10], [90, 10], [90, 90], [10, 90]],
+    elevatedStructureType: 'Rooftop Solar Array',
+  },
+  {
+    id: 'u-bldg1-ter-e02',
+    unitNumber: 'E-02',
+    unitCode: 'TER-E02',
+    buildingId: 'bldg-1',
+    buildingCode: 'BA',
+    floorId: 'fl-bldg1-ter',
+    floorCode: 'TER',
+    full3DULPIN: generateULPIN('27101500984123', 'BA', 'TER', 'E02'),
+    parentParcelULPIN: '27101500984123',
+    unitType: 'Elevated Structure',
+    carpetAreaSqM: 65.0,
+    builtUpAreaSqM: 70.0,
+    usage: 'Elevated Facility',
+    sharePercentageOfLand: 0.0,
+    status: 'Verified',
+    colorHex: '#0284c7',
+    relativeBounds: { x: 0.42, y: 0.1, w: 0.25, d: 0.75 },
+    polygon: [[10, 10], [90, 10], [90, 90], [10, 90]],
+    elevatedStructureType: 'Overhead Water Tank',
+  },
+  {
+    id: 'u-bldg1-ter-e03',
+    unitNumber: 'E-03',
+    unitCode: 'TER-E03',
+    buildingId: 'bldg-1',
+    buildingCode: 'BA',
+    floorId: 'fl-bldg1-ter',
+    floorCode: 'TER',
+    full3DULPIN: generateULPIN('27101500984123', 'BA', 'TER', 'E03'),
+    parentParcelULPIN: '27101500984123',
+    unitType: 'Elevated Structure',
+    carpetAreaSqM: 240.0,
+    builtUpAreaSqM: 250.0,
+    usage: 'Elevated Facility',
+    sharePercentageOfLand: 0.0,
+    status: 'Verified',
+    colorHex: '#f59e0b',
+    relativeBounds: { x: 0.68, y: 0.1, w: 0.28, d: 0.75 },
+    polygon: [[10, 10], [90, 10], [90, 90], [10, 90]],
+    elevatedStructureType: 'Rooftop Helipad / Skydeck',
+  },
+];
+
+// =============================================================================
+// INITIAL OWNERSHIP RECORDS
+// =============================================================================
+export const INITIAL_OWNERSHIPS: OwnershipRecord[] = [
+  {
+    id: 'own-301',
+    unitId: 'u-bldg1-3-301',
+    unitCode: 'F3-301',
+    ownerName: 'Vikram Singh',
+    ownerType: 'Individual',
+    ownershipPercentage: 100,
+    ownershipType: 'Freehold',
+    docRefNo: 'DOC-2023-MH-88912',
+    registrationDate: '2023-04-15',
+    verificationStatus: 'Verified',
+    contactEmail: 'vikram.singh@cadastre.gov.in',
+    nationalIdMasked: 'XXXX-XXXX-4912',
+    mortgageStatus: 'None',
+  },
+  {
+    id: 'own-302',
+    unitId: 'u-bldg1-3-302',
+    unitCode: 'F3-302',
+    ownerName: 'Sunita Godbole',
+    ownerType: 'Individual',
+    ownershipPercentage: 100,
+    ownershipType: 'Freehold',
+    docRefNo: 'DOC-2023-MH-99104',
+    registrationDate: '2023-05-20',
+    verificationStatus: 'Verified',
+    contactEmail: 'sunita.godbole@cadastre.gov.in',
+    nationalIdMasked: 'XXXX-XXXX-8821',
+    mortgageStatus: 'Active Lien - State Bank of India',
+  },
+  {
+    id: 'own-303',
+    unitId: 'u-bldg1-3-303',
+    unitCode: 'F3-303',
+    ownerName: 'Aarav Mehta',
+    ownerType: 'Individual',
+    ownershipPercentage: 100,
+    ownershipType: 'Freehold',
+    docRefNo: 'DOC-2023-MH-10492',
+    registrationDate: '2023-06-10',
+    verificationStatus: 'Flagged',
+    contactEmail: 'aarav.mehta@cadastre.gov.in',
+    nationalIdMasked: 'XXXX-XXXX-3341',
+    mortgageStatus: 'Active Lien - HDFC Bank',
+  },
+  {
+    id: 'own-p01',
+    unitId: 'u-bldg1-b1-p01',
+    unitCode: 'B1-P01',
+    ownerName: 'Vikram Singh',
+    ownerType: 'Individual',
+    ownershipPercentage: 100,
+    ownershipType: 'Freehold',
+    docRefNo: 'DOC-2023-MH-PRK-8812',
+    registrationDate: '2023-04-15',
+    verificationStatus: 'Verified',
+    contactEmail: 'vikram.singh@cadastre.gov.in',
+    nationalIdMasked: 'XXXX-XXXX-4912',
+    mortgageStatus: 'None',
+  },
+];
+
+// =============================================================================
+// INITIAL UNDERGROUND UTILITIES (3D Pipeline Network Paths)
+// =============================================================================
 export const INITIAL_UTILITIES: UndergroundUtility[] = [
   {
     id: 'util-1',
     type: 'Water Pipeline',
-    name: 'Municipal Water Main',
+    name: 'Municipal Potable Water Feeder Main',
     depthM: -2.5,
     diameterMm: 400,
-    material: 'Ductile Iron',
-    colorHex: '#3b82f6',
-    coordinates: [[-20, -2.5, 0], [20, -2.5, 0]],
+    material: 'Ductile Iron (DI)',
+    colorHex: '#0284c7',
+    coordinates: [
+      [-16, -2.5, -12],
+      [-6, -2.5, -6],
+      [6, -2.5, 4],
+      [16, -2.5, 12],
+    ],
+    status: 'Active',
+  },
+  {
+    id: 'util-2',
+    type: 'Sewer Line',
+    name: 'Subterranean Sewerage Trunk',
+    depthM: -4.8,
+    diameterMm: 600,
+    material: 'Reinforced Cement Concrete (RCC)',
+    colorHex: '#ea580c',
+    coordinates: [
+      [-18, -4.8, 10],
+      [-4, -4.8, 2],
+      [8, -4.8, -6],
+      [18, -4.8, -14],
+    ],
+    status: 'Active',
+  },
+  {
+    id: 'util-3',
+    type: 'Electric Cable',
+    name: 'Substation High-Voltage Underground Cable',
+    depthM: -1.5,
+    diameterMm: 180,
+    material: 'XLPE Copper Armored Cable',
+    colorHex: '#eab308',
+    coordinates: [
+      [-16, -1.5, -4],
+      [0, -1.5, 0],
+      [16, -1.5, 4],
+    ],
+    status: 'Active',
+  },
+  {
+    id: 'util-4',
+    type: 'Gas Pipeline',
+    name: 'Mahanagar PNG Natural Gas Pipeline',
+    depthM: -1.8,
+    diameterMm: 150,
+    material: 'HDPE Polyethylene',
+    colorHex: '#8b5cf6',
+    coordinates: [
+      [-14, -1.8, -8],
+      [0, -1.8, -2],
+      [14, -1.8, 6],
+    ],
     status: 'Active',
   },
 ];
 
-export const MOCK_AI_SEGMENTATION_RESULT: AISegmentationResult = {
-  floorId: 'floor-bldg-1-3',
-  confidence: 0.94,
-  detectedUnitsCount: 4,
-  processingTimeSeconds: 1.8,
-  modelName: 'GeoVision-Gemini-Spatial-v2',
-  status: 'Completed',
-  units: [],
-};
+// =============================================================================
+// INITIAL OWNERSHIP CONFLICTS
+// =============================================================================
+export const INITIAL_CONFLICTS: OwnershipConflict[] = [
+  {
+    id: 'conf-101',
+    unitId: 'u-bldg1-3-303',
+    unitCode: 'F3-303',
+    buildingName: 'SeaBreeze Strata Tower',
+    parentULPIN: '27101500984123',
+    unit3DULPIN: '27101500984123-BA-F3-U03',
+    severity: 'High',
+    issueType: 'Multiple Ownership Records',
+    description: 'Overlapping title registration detected between Aarav Mehta (Doc #10492) and Pooja Hegde (Doc #99812).',
+    conflictingParties: ['Aarav Mehta', 'Pooja Hegde'],
+    docRefNumbers: ['DOC-2023-MH-10492', 'DOC-2022-MH-99812'],
+    reportedDate: '2024-07-28',
+    status: 'Open',
+  },
+];

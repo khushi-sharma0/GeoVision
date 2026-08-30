@@ -168,21 +168,91 @@ export const CadastreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
 
-  // Core Data State
-  const [parcels, setParcels] = useState<Parcel[]>(INITIAL_PARCELS);
-  const [buildings, setBuildings] = useState<Building[]>(INITIAL_BUILDINGS);
-  const [floors, setFloors] = useState<Floor[]>(INITIAL_FLOORS);
-  const [units, setUnits] = useState<Unit[]>(INITIAL_UNITS);
-  const [ownerships, setOwnerships] = useState<OwnershipRecord[]>(INITIAL_OWNERSHIPS);
+    // Core Data State with localStorage persistence
+  const [parcels, setParcels] = useState<Parcel[]>(() => {
+    const saved = localStorage.getItem('geovision_parcels');
+    return saved ? JSON.parse(saved) : INITIAL_PARCELS;
+  });
+  const [buildings, setBuildings] = useState<Building[]>(() => {
+    const saved = localStorage.getItem('geovision_buildings');
+    return saved ? JSON.parse(saved) : INITIAL_BUILDINGS;
+  });
+  const [floors, setFloors] = useState<Floor[]>(() => {
+    const saved = localStorage.getItem('geovision_floors');
+    return saved ? JSON.parse(saved) : INITIAL_FLOORS;
+  });
+  const [units, setUnits] = useState<Unit[]>(() => {
+    const saved = localStorage.getItem('geovision_units');
+    return saved ? JSON.parse(saved) : INITIAL_UNITS;
+  });
+  const [ownerships, setOwnerships] = useState<OwnershipRecord[]>(() => {
+    const saved = localStorage.getItem('geovision_ownerships');
+    return saved ? JSON.parse(saved) : INITIAL_OWNERSHIPS;
+  });
   const [conflicts, setConflicts] = useState<OwnershipConflict[]>(INITIAL_CONFLICTS);
-  const [utilities, setUtilities] = useState<UndergroundUtility[]>(INITIAL_UTILITIES);
+  const [utilities, setUtilities] = useState<UndergroundUtility[]>(() => {
+  const saved = localStorage.getItem('geovision_utilities');
+  return saved ? JSON.parse(saved) : INITIAL_UTILITIES;
+});
 
-  // Selections
-  const [selectedParcelId, setSelectedParcelId] = useState<string | null>(null);
-  const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(null);
-  const [selectedFloorId, setSelectedFloorId] = useState<string | null>(null);
-  const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
+  // Selections with localStorage persistence
+  const [selectedParcelId, setSelectedParcelId] = useState<string | null>(() => {
+    return localStorage.getItem('geovision_selected_parcel_id');
+  });
+  const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(() => {
+    return localStorage.getItem('geovision_selected_building_id');
+  });
+  const [selectedFloorId, setSelectedFloorId] = useState<string | null>(() => {
+    return localStorage.getItem('geovision_selected_floor_id');
+  });
+  const [selectedUnitId, setSelectedUnitId] = useState<string | null>(() => {
+    return localStorage.getItem('geovision_selected_unit_id');
+  });
 
+  // Sync state changes to localStorage
+  useEffect(() => {
+  localStorage.setItem('geovision_utilities', JSON.stringify(utilities));
+}, [utilities]);
+  useEffect(() => {
+    localStorage.setItem('geovision_parcels', JSON.stringify(parcels));
+  }, [parcels]);
+
+  useEffect(() => {
+    localStorage.setItem('geovision_buildings', JSON.stringify(buildings));
+  }, [buildings]);
+
+  useEffect(() => {
+    localStorage.setItem('geovision_floors', JSON.stringify(floors));
+  }, [floors]);
+
+  useEffect(() => {
+    localStorage.setItem('geovision_units', JSON.stringify(units));
+  }, [units]);
+
+  useEffect(() => {
+    localStorage.setItem('geovision_ownerships', JSON.stringify(ownerships));
+  }, [ownerships]);
+
+  useEffect(() => {
+    if (selectedParcelId) localStorage.setItem('geovision_selected_parcel_id', selectedParcelId);
+    else localStorage.removeItem('geovision_selected_parcel_id');
+  }, [selectedParcelId]);
+
+  useEffect(() => {
+    if (selectedBuildingId) localStorage.setItem('geovision_selected_building_id', selectedBuildingId);
+    else localStorage.removeItem('geovision_selected_building_id');
+  }, [selectedBuildingId]);
+
+  useEffect(() => {
+    if (selectedFloorId) localStorage.setItem('geovision_selected_floor_id', selectedFloorId);
+    else localStorage.removeItem('geovision_selected_floor_id');
+  }, [selectedFloorId]);
+
+  useEffect(() => {
+    if (selectedUnitId) localStorage.setItem('geovision_selected_unit_id', selectedUnitId);
+    else localStorage.removeItem('geovision_selected_unit_id');
+  }, [selectedUnitId]);
+  
   // Search & Filters
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [layers, setLayers] = useState<LayerVisibilityState>(DEFAULT_LAYERS);

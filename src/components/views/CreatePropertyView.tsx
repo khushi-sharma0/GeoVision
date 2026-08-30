@@ -443,38 +443,48 @@ SB-F6-604,Natasha Poonawalla Ltd,Corporate,100,Freehold,MH-MUM-REG-2024-1064,Ver
       };
     });
 
-    // Custom Units
-    const customUnits: Unit[] = parsedUnits.map((u, idx) => {
-      const uFloor = customFloors.find((f) => f.floorCode === u.floor);
-      const uFloorId = uFloor ? uFloor.id : `floor-gen-${u.floor}`;
-      const uIdent = `U${String(idx + 1).padStart(2, '0')}`;
-      const fulpin = generateULPIN(existingUlpin, buildingCode, u.floor, uIdent);
+        // Custom Units grouped by floor to calculate exact per-floor relative bounds
+    const customUnits: Unit[] = [];
+    distinctFloorCodes.forEach((fCode) => {
+      const fUnits = parsedUnits.filter((u) => u.floor === fCode);
+      const uCount = fUnits.length;
+      const cols = uCount <= 2 ? Math.max(1, uCount) : Math.ceil(Math.sqrt(uCount));
+      const rows = Math.ceil(uCount / (cols || 1));
 
-      return {
-        id: `unit-gen-${u.unitId}`,
-        unitNumber: u.unitId,
-        unitCode: u.unitId,
-        buildingId: '',
-        buildingCode: buildingCode,
-        floorId: uFloorId,
-        floorCode: u.floor,
-        full3DULPIN: fulpin,
-        parentParcelULPIN: existingUlpin,
-        unitType: u.unitType,
-        carpetAreaSqM: u.areaSqM,
-        builtUpAreaSqM: +(u.areaSqM * 1.12).toFixed(2),
-        usage: (['Residential', 'Commercial', 'Utility', 'Common Area'].includes(u.usage) ? u.usage : 'Residential') as any,
-        sharePercentageOfLand: +(100 / (parsedUnits.length || 1)).toFixed(2),
-        status: 'Verified',
-        colorHex: idx % 3 === 0 ? '#3b82f6' : idx % 3 === 1 ? '#10b981' : '#f59e0b',
-        relativeBounds: {
-          x: (idx % 2 === 0) ? 0.05 : 0.52,
-          y: (idx % 4 >= 2) ? 0.52 : 0.05,
-          w: 0.43,
-          d: 0.43,
-        },
-        polygon: [[10, 10], [90, 10], [90, 90], [10, 90]],
-      };
+      fUnits.forEach((u, fIdx) => {
+        const uFloor = customFloors.find((f) => f.floorCode === u.floor);
+        const uFloorId = uFloor ? uFloor.id : `floor-gen-${u.floor}`;
+        const uIdent = `U${String(fIdx + 1).padStart(2, '0')}`;
+        const fulpin = generateULPIN(existingUlpin, buildingCode, u.floor, uIdent);
+
+        const r = Math.floor(fIdx / cols);
+        const c = fIdx % cols;
+        const w = +(0.86 / cols).toFixed(2);
+        const d = +(0.86 / (rows || 1)).toFixed(2);
+        const x = +(0.05 + c * (0.90 / cols)).toFixed(2);
+        const y = +(0.05 + r * (0.90 / (rows || 1))).toFixed(2);
+
+        customUnits.push({
+          id: `unit-gen-${u.unitId}`,
+          unitNumber: u.unitId,
+          unitCode: u.unitId,
+          buildingId: '',
+          buildingCode: buildingCode,
+          floorId: uFloorId,
+          floorCode: u.floor,
+          full3DULPIN: fulpin,
+          parentParcelULPIN: existingUlpin,
+          unitType: u.unitType,
+          carpetAreaSqM: u.areaSqM,
+          builtUpAreaSqM: +(u.areaSqM * 1.12).toFixed(2),
+          usage: u.usage as any,
+          sharePercentageOfLand: +(100 / (parsedUnits.length || 1)).toFixed(2),
+          status: 'Verified',
+          colorHex: fIdx % 3 === 0 ? '#3b82f6' : fIdx % 3 === 1 ? '#10b981' : '#f59e0b',
+          relativeBounds: { x, y, w, d },
+          polygon: [[10, 10], [90, 10], [90, 90], [10, 90]],
+        });
+      });
     });
 
     // Custom Ownerships

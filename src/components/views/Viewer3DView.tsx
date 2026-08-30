@@ -125,14 +125,6 @@ export const Viewer3DView: React.FC = () => {
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => setActiveTab('create')}
-                className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-md shadow-blue-500/20 flex items-center gap-1.5 transition-all cursor-pointer"
-              >
-                <PlusCircle className="w-4 h-4" />
-                <span>Create / Generate 3D Property</span>
-              </button>
-              <button
-                type="button"
                 onClick={() => setActiveTab('properties')}
                 className="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs border border-slate-200 dark:border-slate-700 flex items-center gap-1.5 transition-all cursor-pointer"
               >
@@ -245,14 +237,7 @@ export const Viewer3DView: React.FC = () => {
             <div className="bg-white dark:bg-slate-900 rounded-2xl p-12 text-center border border-slate-200 dark:border-slate-800">
               <Building2 className="w-12 h-12 text-slate-300 mx-auto mb-3" />
               <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200">No properties match your search</h3>
-              <p className="text-xs text-slate-500 mt-1">Try adjusting the search terms or create a new property</p>
-              <button
-                type="button"
-                onClick={() => setActiveTab('create')}
-                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-semibold"
-              >
-                Create New Property
-              </button>
+              <p className="text-xs text-slate-500 mt-1">Try adjusting the search terms</p>
             </div>
           )}
 

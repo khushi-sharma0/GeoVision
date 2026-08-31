@@ -6,6 +6,7 @@ interface LeafletMapWidgetProps {
   height?: string;
   showControls?: boolean;
   interactive?: boolean;
+  showBoundaries?: boolean;
   onParcelSelect?: (parcelId: string) => void;
 }
 
@@ -13,6 +14,7 @@ export const LeafletMapWidget: React.FC<LeafletMapWidgetProps> = ({
   height = '100%',
   showControls = true,
   interactive = true,
+  showBoundaries = false,
   onParcelSelect,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -36,7 +38,7 @@ export const LeafletMapWidget: React.FC<LeafletMapWidgetProps> = ({
 
     const map = L.map(mapContainerRef.current, {
       center: initialCenter,
-      zoom: 18,
+      zoom: 17,
       zoomControl: showControls,
       attributionControl: false,
       dragging: interactive,
@@ -46,102 +48,115 @@ export const LeafletMapWidget: React.FC<LeafletMapWidgetProps> = ({
     });
     mapInstanceRef.current = map;
 
-    // Base Tile Layer (Free, zero-API-key tile providers for Light & Dark mode)
+    // Base Tile Layer (Free, zero-API-key tile providers)
     const tileUrl = isDark
       ? 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}'
       : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 
-    const tileLayer = L.tileLayer(tileUrl, {
+    L.tileLayer(tileUrl, {
       maxZoom: 20,
       maxNativeZoom: 19,
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     }).addTo(map);
 
-    // Render Parcels
-    const features: any = {
-      type: 'FeatureCollection',
-      features: parcels.map((p) => ({
-        ...p.boundaryGeoJSON,
-        id: p.id,
-        properties: {
+    // Optional Parcel Polygon Boundaries (Disabled by default)
+    if (showBoundaries) {
+      const features: any = {
+        type: 'FeatureCollection',
+        features: parcels.map((p) => ({
+          ...p.boundaryGeoJSON,
           id: p.id,
-          ulpin: p.ulpin,
-          localId: p.localParcelId,
-          landUse: p.landUse,
-          area: p.areaSqM,
-          name: p.locationName,
+          properties: {
+            id: p.id,
+            ulpin: p.ulpin,
+            localId: p.localParcelId,
+            landUse: p.landUse,
+            area: p.areaSqM,
+            name: p.locationName,
+          },
+        })),
+      };
+
+      const geoLayer = L.geoJSON(features, {
+        style: (feature) => {
+          const isSelected = feature?.id === selectedParcelId;
+          return {
+            color: isSelected ? '#0284c7' : '#475569',
+            weight: isSelected ? 3 : 1.5,
+            opacity: 0.9,
+            fillColor: isSelected ? '#0284c7' : '#94a3b8',
+            fillOpacity: isSelected ? 0.35 : 0.15,
+          };
         },
-      })),
-    };
+        onEachFeature: (feature, layer) => {
+          if (!interactive) return;
 
-    const geoLayer = L.geoJSON(features, {
-      style: (feature) => {
-        const isSelected = feature?.id === selectedParcelId;
-        return {
-          color: isSelected ? '#0284c7' : '#475569',
-          weight: isSelected ? 3 : 1.5,
-          opacity: 0.9,
-          fillColor: isSelected ? '#0284c7' : '#94a3b8',
-          fillOpacity: isSelected ? 0.35 : 0.15,
-        };
-      },
-      onEachFeature: (feature, layer) => {
-        if (!interactive) return;
+          layer.on({
+            click: () => {
+              if (feature.id) {
+                setSelectedParcelId(String(feature.id));
+                onParcelSelect?.(String(feature.id));
+              }
+            },
+            mouseover: (e) => {
+              const l = e.target;
+              if (feature.id !== selectedParcelId) {
+                l.setStyle({ fillOpacity: 0.3, weight: 2, color: '#38bdf8' });
+              }
+            },
+            mouseout: (e) => {
+              const l = e.target;
+              if (feature.id !== selectedParcelId) {
+                l.setStyle({ fillOpacity: 0.15, weight: 1.5, color: '#475569' });
+              }
+            },
+          });
 
-        layer.on({
-          click: () => {
-            if (feature.id) {
-              setSelectedParcelId(feature.id);
-              onParcelSelect?.(feature.id);
-            }
-          },
-          mouseover: (e) => {
-            const l = e.target;
-            if (feature.id !== selectedParcelId) {
-              l.setStyle({ fillOpacity: 0.3, weight: 2, color: '#38bdf8' });
-            }
-          },
-          mouseout: (e) => {
-            const l = e.target;
-            if (feature.id !== selectedParcelId) {
-              l.setStyle({ fillOpacity: 0.15, weight: 1.5, color: '#475569' });
-            }
-          },
-        });
+          // Tooltip
+          layer.bindTooltip(
+            `<strong>${feature.properties.localId}</strong><br/>ULPIN: ${feature.properties.ulpin}<br/>${feature.properties.area} m² (${feature.properties.landUse})`,
+            { className: 'cadastre-tooltip font-sans text-xs', sticky: true }
+          );
+        },
+      }).addTo(map);
+      geojsonLayerRef.current = geoLayer;
+    }
 
-        // Tooltip
-        layer.bindTooltip(
-          `<strong>${feature.properties.localId}</strong><br/>ULPIN: ${feature.properties.ulpin}<br/>${feature.properties.area} m² (${feature.properties.landUse})`,
-          { className: 'cadastre-tooltip font-sans text-xs', sticky: true }
-        );
-      },
-    }).addTo(map);
-    geojsonLayerRef.current = geoLayer;
-
-    // Building marker on selected parcel
-    if (selectedP) {
+    // Property Pin Markers for all parcels
+    parcels.forEach((p) => {
+      const isSelected = p.id === selectedParcelId;
       const pinIcon = L.divIcon({
         className: 'custom-pin-icon',
-        html: `<div class="flex items-center justify-center w-7 h-7 rounded-full bg-blue-600 border-2 border-white shadow-lg text-white font-bold text-xs"><svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg></div>`,
-        iconSize: [28, 28],
-        iconAnchor: [14, 14],
+        html: `<div class="flex items-center justify-center ${
+          isSelected ? 'w-8 h-8 bg-blue-600 ring-4 ring-blue-500/30' : 'w-7 h-7 bg-slate-700 hover:bg-blue-500'
+        } rounded-full border-2 border-white shadow-lg text-white font-bold text-xs transition-all cursor-pointer"><svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 17 22 12"></polyline></svg></div>`,
+        iconSize: isSelected ? [32, 32] : [28, 28],
+        iconAnchor: isSelected ? [16, 16] : [14, 14],
       });
-      L.marker([selectedP.latitude, selectedP.longitude], { icon: pinIcon })
+
+      const marker = L.marker([p.latitude, p.longitude], { icon: pinIcon })
         .addTo(map)
-        .bindPopup(`<b>${selectedP.localParcelId}</b><br/>${selectedP.locationName}`);
-    }
+        .bindPopup(`<b>${p.localParcelId}</b><br/>ULPIN: ${p.ulpin}<br/>${p.locationName}`);
+
+      if (interactive) {
+        marker.on('click', () => {
+          setSelectedParcelId(p.id);
+          onParcelSelect?.(p.id);
+        });
+      }
+    });
 
     return () => {
       map.remove();
     };
-  }, [parcels, selectedParcelId, isDark, interactive, showControls]);
+  }, [parcels, selectedParcelId, isDark, interactive, showControls, showBoundaries]);
 
   // Pan to parcel when selectedParcelId changes
   useEffect(() => {
     if (!mapInstanceRef.current) return;
     const p = parcels.find((item) => item.id === selectedParcelId);
     if (p) {
-      mapInstanceRef.current.setView([p.latitude, p.longitude], 18, { animate: true });
+      mapInstanceRef.current.setView([p.latitude, p.longitude], 17, { animate: true });
     }
   }, [selectedParcelId, parcels]);
 

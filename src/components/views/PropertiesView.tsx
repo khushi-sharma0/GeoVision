@@ -18,6 +18,7 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 import { useCadastre } from '../../context/CadastreContext';
+import { useAuth } from '../../context/AuthContext';
 
 export const PropertiesView: React.FC = () => {
   const {
@@ -28,6 +29,9 @@ export const PropertiesView: React.FC = () => {
     selectProperty,
     setActiveTab,
   } = useCadastre();
+
+  const { user } = useAuth();
+  const isCitizen = user?.role?.toLowerCase().includes('citizen');
 
   // Search & Filter States
   const [search, setSearch] = useState<string>('');
@@ -126,7 +130,7 @@ export const PropertiesView: React.FC = () => {
               <h1 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">
                 Cadastral Properties & 3D Strata Schemes
               </h1>
-              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300">
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300">
                 {filteredParcels.length} of {parcels.length} Properties
               </span>
             </div>
@@ -136,13 +140,15 @@ export const PropertiesView: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setActiveTab('create')}
-              className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs flex items-center gap-1.5 shadow-sm cursor-pointer"
-            >
-              <PlusCircle className="w-4 h-4" />
-              <span>Create 3D Property</span>
-            </button>
+            {!isCitizen && (
+              <button
+                onClick={() => setActiveTab('create')}
+                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs flex items-center gap-1.5 shadow-sm cursor-pointer"
+              >
+                <PlusCircle className="w-4 h-4" />
+                <span>Create 3D Property</span>
+              </button>
+            )}
           </div>
         </div>
 

@@ -125,6 +125,14 @@ export const Viewer3DView: React.FC = () => {
             <div className="flex items-center gap-2">
               <button
                 type="button"
+                onClick={() => setActiveTab('create')}
+                className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-md shadow-blue-500/20 flex items-center gap-1.5 transition-all cursor-pointer"
+              >
+                <PlusCircle className="w-4 h-4" />
+                <span>Create / Generate 3D Property</span>
+              </button>
+              <button
+                type="button"
                 onClick={() => setActiveTab('properties')}
                 className="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs border border-slate-200 dark:border-slate-700 flex items-center gap-1.5 transition-all cursor-pointer"
               >
@@ -237,7 +245,14 @@ export const Viewer3DView: React.FC = () => {
             <div className="bg-white dark:bg-slate-900 rounded-2xl p-12 text-center border border-slate-200 dark:border-slate-800">
               <Building2 className="w-12 h-12 text-slate-300 mx-auto mb-3" />
               <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200">No properties match your search</h3>
-              <p className="text-xs text-slate-500 mt-1">Try adjusting the search terms</p>
+              <p className="text-xs text-slate-500 mt-1">Try adjusting the search terms or create a new property</p>
+              <button
+                type="button"
+                onClick={() => setActiveTab('create')}
+                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-semibold"
+              >
+                Create New Property
+              </button>
             </div>
           )}
 
@@ -353,32 +368,44 @@ export const Viewer3DView: React.FC = () => {
             </button>
           </div>
 
-          {/* Bottom Floating 3D Toolbar */}
-          <div className="absolute bottom-4 left-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-1.5 rounded-lg shadow-sm border border-slate-200 dark:border-slate-800 flex items-center gap-1.5 z-20">
+          {/* Bottom Floating 3D Toolbar with Report Incorrect Boundary Redirection Button */}
+          <div className="absolute bottom-4 left-4 flex items-center gap-2 z-20">
+            <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-1.5 rounded-lg shadow-sm border border-slate-200 dark:border-slate-800 flex items-center gap-1.5">
+              <button
+                onClick={() => setActiveTab('properties')}
+                title="All Properties Registry"
+                className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+              >
+                <Building className="w-4 h-4" />
+              </button>
+              <div className="w-px h-4 bg-slate-200 dark:bg-slate-700" />
+              <button
+                onClick={() => setIsFloorPlanModalOpen(true)}
+                title="View 2D Floor Plan & AI Polygons"
+                className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-600 dark:text-slate-300 transition-colors flex items-center gap-1 text-xs font-medium cursor-pointer"
+              >
+                <Eye className="w-4 h-4 text-blue-600" />
+                <span className="hidden sm:inline">Floor Plan</span>
+              </button>
+              <div className="w-px h-4 bg-slate-200 dark:bg-slate-700" />
+              <button
+                onClick={() => setActiveTab('ai_analysis')}
+                title="AI Analysis"
+                className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-600 dark:text-slate-300 transition-colors flex items-center gap-1 text-xs font-medium cursor-pointer"
+              >
+                <Cpu className="w-4 h-4 text-emerald-600" />
+                <span className="hidden sm:inline">AI Mesh</span>
+              </button>
+            </div>
+
+            {/* Report Incorrect Boundary Button -> Redirects to Reports Page */}
             <button
-              onClick={() => setActiveTab('properties')}
-              title="All Properties Registry"
-              className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+              type="button"
+              onClick={() => setActiveTab('reports')}
+              className="px-3.5 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-md transition-all cursor-pointer"
             >
-              <Building className="w-4 h-4" />
-            </button>
-            <div className="w-px h-4 bg-slate-200 dark:bg-slate-700" />
-            <button
-              onClick={() => setIsFloorPlanModalOpen(true)}
-              title="View 2D Floor Plan & AI Polygons"
-              className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-600 dark:text-slate-300 transition-colors flex items-center gap-1 text-xs font-medium cursor-pointer"
-            >
-              <Eye className="w-4 h-4 text-blue-600" />
-              <span className="hidden sm:inline">Floor Plan</span>
-            </button>
-            <div className="w-px h-4 bg-slate-200 dark:bg-slate-700" />
-            <button
-              onClick={() => setActiveTab('ai_analysis')}
-              title="AI Analysis"
-              className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-600 dark:text-slate-300 transition-colors flex items-center gap-1 text-xs font-medium cursor-pointer"
-            >
-              <Cpu className="w-4 h-4 text-emerald-600" />
-              <span className="hidden sm:inline">AI Mesh</span>
+              <AlertTriangle className="w-4 h-4" />
+              <span>Report Incorrect Boundary</span>
             </button>
           </div>
         </div>
@@ -573,7 +600,7 @@ export const Viewer3DView: React.FC = () => {
           </div>
         </div>
 
-        {/* Right: Topology Status Alert Banner */}
+        {/* Right: Topology Status Alert Banner -> Details Button Redirects to Reports Page */}
         <div className="w-full md:w-80 p-3 bg-amber-50/70 dark:bg-amber-950/20 flex flex-col justify-center shrink-0">
           <div className="flex items-center justify-between mb-1">
             <span className="text-[10px] text-amber-800 dark:text-amber-300 font-bold uppercase tracking-wider flex items-center gap-1">
@@ -581,10 +608,10 @@ export const Viewer3DView: React.FC = () => {
               Topology Status
             </span>
             <button
-              onClick={() => setActiveTab('validation')}
+              onClick={() => setActiveTab('reports')}
               className="text-[10px] text-amber-700 dark:text-amber-300 font-bold hover:underline cursor-pointer"
             >
-              Details &rarr;
+              Report Boundary &rarr;
             </button>
           </div>
 

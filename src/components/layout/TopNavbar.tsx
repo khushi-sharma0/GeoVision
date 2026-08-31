@@ -9,9 +9,11 @@ import {
   ShieldCheck,
   Building,
   MapPin,
+  AlertTriangle,
   X,
   LogOut,
   Shield,
+  UserCheck,
 } from 'lucide-react';
 import { useCadastre } from '../../context/CadastreContext';
 import { useAuth } from '../../context/AuthContext';
@@ -34,13 +36,20 @@ export const TopNavbar: React.FC = () => {
     setSelectedParcelId,
   } = useCadastre();
 
-  const { user, userType, logout } = useAuth();
+  const { user, logout, switchUserRole } = useAuth();
+
+  const isCitizen =
+    !user ||
+    user.role?.toLowerCase().includes('citizen') ||
+    user.name?.toLowerCase().includes('aarav') ||
+    localStorage.getItem('geovision_user_role') === 'citizen';
 
   const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
   const [isNotifOpen, setIsNotifOpen] = useState<boolean>(false);
   const [isAdminMenuOpen, setIsAdminMenuOpen] = useState<boolean>(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
+  // Filter search results dynamically
   const filteredResults = React.useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return null;
@@ -97,13 +106,17 @@ export const TopNavbar: React.FC = () => {
   return (
     <header className="sticky top-0 z-40 w-full h-14 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-4 md:px-6 shrink-0 transition-colors">
       <div className="w-full flex items-center justify-between gap-4">
-        {/* Brand Logo & Portal Tag */}
+        {/* Left: Brand Logo & System Title */}
         <div
-          onClick={() => setActiveTab(userType === 'citizen' ? 'viewer3d' : 'dashboard')}
+          onClick={() => setActiveTab('dashboard')}
           className="flex items-center gap-3 cursor-pointer select-none group shrink-0"
         >
           <div className="w-9 h-9 rounded-lg bg-white p-0.5 shadow-xs border border-slate-200 dark:border-slate-800 flex items-center justify-center overflow-hidden group-hover:scale-105 transition-transform">
-            <img src="/logo.jpeg" alt="GeoVision Logo" className="w-full h-full object-contain" />
+            <img
+              src="/logo.jpg"
+              alt="GeoVision Logo"
+              className="w-full h-full object-contain"
+            />
           </div>
           <div>
             <div className="flex items-center gap-2">
@@ -111,13 +124,13 @@ export const TopNavbar: React.FC = () => {
                 GeoVision
               </h1>
               <span
-                className={`hidden sm:inline-block px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider rounded border ${
-                  userType === 'citizen'
-                    ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/80 dark:text-blue-300 border-blue-200 dark:border-blue-800'
-                    : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                className={`hidden sm:inline-block px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded border ${
+                  isCitizen
+                    ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/80 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                    : 'bg-blue-50 text-blue-700 dark:bg-blue-950/80 dark:text-blue-300 border-blue-200 dark:border-blue-800'
                 }`}
               >
-                {userType === 'citizen' ? 'Citizen Portal' : 'Authority Portal'}
+                {isCitizen ? 'CITIZEN PORTAL' : '3D Cadastre'}
               </span>
             </div>
             <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold leading-none mt-0.5">
@@ -126,7 +139,7 @@ export const TopNavbar: React.FC = () => {
           </div>
         </div>
 
-        {/* Global Search Bar */}
+        {/* Center: Global Search Bar */}
         <div ref={searchRef} className="relative flex-1 max-w-xl px-2 sm:px-6 hidden sm:block">
           <div className="relative flex items-center">
             <Search className="absolute left-3.5 w-4 h-4 text-slate-400 pointer-events-none" />
@@ -144,168 +157,128 @@ export const TopNavbar: React.FC = () => {
                   setIsSearchOpen(false);
                 }
               }}
-              placeholder={userType === 'citizen' ? "Search your property by ULPIN / Owner Name..." : "Search by ULPIN / Owner / Location..."}
+              placeholder="Search your property by ULPIN / Owner Name..."
               className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-full py-1.5 pl-10 pr-9 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white dark:focus:bg-slate-900 transition-all font-sans"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                className="absolute right-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
-
-          {/* Autocomplete Dropdown */}
-          {isSearchOpen && filteredResults && filteredResults.totalCount > 0 && (
-            <div className="absolute top-12 left-0 w-full bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-2 z-50 max-h-96 overflow-y-auto">
-              {filteredResults.units.length > 0 && (
-                <div className="mb-2">
-                  <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 px-3 py-1">
-                    Units & 3D ULPINs
-                  </div>
-                  {filteredResults.units.map((u) => (
-                    <button
-                      key={u.id}
-                      onClick={() => handleSelectUnit(u.id, u.floorId, u.buildingId)}
-                      className="w-full flex items-center justify-between px-3 py-2 text-left rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                    >
-                      <div className="flex items-center gap-2">
-                        <Building className="w-4 h-4 text-blue-500" />
-                        <div>
-                          <div className="text-sm font-semibold text-slate-900 dark:text-white font-mono">
-                            {u.unitCode} ({u.unitType})
-                          </div>
-                          <div className="text-xs text-slate-500 font-mono">{u.full3DULPIN}</div>
-                        </div>
-                      </div>
-                      <span className="text-xs text-slate-400">{u.carpetAreaSqM} m²</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {filteredResults.owners.length > 0 && (
-                <div className="mb-2">
-                  <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 px-3 py-1">
-                    Ownership Records
-                  </div>
-                  {filteredResults.owners.map((o) => {
-                    const u = units.find((un) => un.id === o.unitId);
-                    return (
-                      <button
-                        key={o.id}
-                        onClick={() => {
-                          if (u) handleSelectUnit(u.id, u.floorId, u.buildingId);
-                        }}
-                        className="w-full flex items-center justify-between px-3 py-2 text-left rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                      >
-                        <div className="flex items-center gap-2">
-                          <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                          <div>
-                            <div className="text-sm font-semibold text-slate-900 dark:text-white">
-                              {o.ownerName} ({o.ownershipType})
-                            </div>
-                            <div className="text-xs text-slate-500 font-mono">
-                              Unit {o.unitCode} • Doc: {o.docRefNo}
-                            </div>
-                          </div>
-                        </div>
-                        <span className="text-xs px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 font-medium">
-                          {o.verificationStatus}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
         </div>
 
-        {/* Right Section */}
+        {/* Right Actions: Notifications, Theme Switch, Profile */}
         <div className="flex items-center gap-3 shrink-0">
+          {/* Theme Toggle */}
           <button
             onClick={toggleTheme}
             type="button"
-            className="w-9 h-9 rounded-md flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            className="w-9 h-9 rounded-md flex items-center justify-center text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors duration-150 cursor-pointer focus:outline-none overflow-hidden"
+            title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
           >
-            {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-700" />}
+            <AnimatePresence mode="wait" initial={false}>
+              {isDark ? (
+                <motion.div
+                  key="sun-icon"
+                  initial={{ opacity: 0, rotate: -90, scale: 0.8 }}
+                  animate={{ opacity: 1, rotate: 0, scale: 1 }}
+                  exit={{ opacity: 0, rotate: 90, scale: 0.8 }}
+                  transition={{ duration: 0.15 }}
+                  className="flex items-center justify-center"
+                >
+                  <Sun className="w-[18px] h-[18px] text-amber-400" />
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="moon-icon"
+                  initial={{ opacity: 0, rotate: 90, scale: 0.8 }}
+                  animate={{ opacity: 1, rotate: 0, scale: 1 }}
+                  exit={{ opacity: 0, rotate: -90, scale: 0.8 }}
+                  transition={{ duration: 0.15 }}
+                  className="flex items-center justify-center"
+                >
+                  <Moon className="w-[18px] h-[18px] text-slate-700" />
+                </motion.div>
+              )}
+            </AnimatePresence>
           </button>
 
-          {/* Notifications */}
-          <div className="relative">
-            <button
-              onClick={() => setIsNotifOpen((prev) => !prev)}
-              className="relative p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-500 dark:text-slate-400 transition-colors cursor-pointer"
-            >
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500" />
-            </button>
-
-            {isNotifOpen && (
-              <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-3 z-50">
-                <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                    Notifications
-                  </span>
-                </div>
-                <div className="space-y-2 text-xs">
-                  <div className="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-200">
-                    <div className="font-bold">3D ULPIN Verified</div>
-                    <div className="text-[11px] text-slate-500 mt-0.5">Unit F3-303 boundary certificate is active.</div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* User Profile */}
+          {/* User Profile Menu */}
           <div className="relative border-l pl-4 border-slate-200 dark:border-slate-800 flex items-center gap-2.5">
             <button
               onClick={() => setIsAdminMenuOpen((prev) => !prev)}
               className="flex items-center gap-2 hover:opacity-80 transition-opacity text-left cursor-pointer"
             >
-              <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs text-white shadow-xs ${
-                  userType === 'citizen' ? 'bg-blue-600' : 'bg-emerald-600'
-                }`}
-              >
-                {user ? user.name.split(' ').map((n) => n[0]).join('').slice(0, 2) : 'US'}
+              <div className="w-7 h-7 bg-blue-600 dark:bg-blue-500 text-white rounded-full flex items-center justify-center font-bold text-[11px] shadow-xs">
+                {user ? user.name.split(' ').map((n) => n[0]).join('').slice(0, 2) : 'AM'}
               </div>
               <div className="text-right hidden sm:block">
                 <p className="text-[11px] font-bold text-slate-900 dark:text-white leading-tight">
                   {user?.name || 'Aarav Mehta'}
                 </p>
-                <p className="text-[9px] text-slate-500 leading-none capitalize">
-                  {userType === 'citizen' ? 'Citizen Account' : user?.role}
+                <p className="text-[9px] text-slate-500 leading-none">
+                  {user?.role || 'Citizen Account'}
                 </p>
               </div>
             </button>
 
             {isAdminMenuOpen && (
-              <div className="absolute right-0 top-11 w-64 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-2 z-50">
+              <div className="absolute right-0 top-10 w-64 bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 p-2 z-50">
                 <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800">
                   <div className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 font-bold text-xs">
-                    {userType === 'citizen' ? <User className="w-4 h-4 text-blue-500" /> : <Shield className="w-4 h-4 text-emerald-500" />}
-                    <span>{user?.name}</span>
+                    <Shield className="w-3.5 h-3.5" />
+                    <span>{user?.name || 'Aarav Mehta'}</span>
                   </div>
                   <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
-                    {user?.email}
+                    {user?.role || 'Citizen Account'}
                   </p>
                 </div>
 
-                <div className="pt-1">
+                <div className="py-1 space-y-1">
+                  <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Switch Mode / View
+                  </div>
+                  <button
+                    onClick={() => {
+                      switchUserRole('citizen');
+                      setIsAdminMenuOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-1.5 text-xs rounded-lg flex items-center justify-between cursor-pointer ${
+                      isCitizen ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 font-bold' : 'hover:bg-slate-100 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    <span>Citizen Mode</span>
+                    {isCitizen && <span className="text-[10px] bg-amber-200 px-1.5 py-0.5 rounded">Active</span>}
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      switchUserRole('official');
+                      setIsAdminMenuOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-1.5 text-xs rounded-lg flex items-center justify-between cursor-pointer ${
+                      !isCitizen ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 font-bold' : 'hover:bg-slate-100 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    <span>Official Surveyor Mode</span>
+                    {!isCitizen && <span className="text-[10px] bg-blue-200 px-1.5 py-0.5 rounded">Active</span>}
+                  </button>
+                </div>
+
+                <div className="pt-1 border-t border-slate-100 dark:border-slate-800">
                   <button
                     onClick={() => {
                       setIsAdminMenuOpen(false);
                       logout();
                     }}
-                    className="w-full text-left px-3 py-2 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-xl flex items-center gap-2 font-bold cursor-pointer"
+                    className="w-full text-left px-3 py-1.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg flex items-center gap-2 font-semibold cursor-pointer"
                   >
                     <LogOut className="w-3.5 h-3.5" />
-                    <span>Sign Out ({userType === 'citizen' ? 'Citizen Portal' : 'Authority Portal'})</span>
+                    <span>Sign Out</span>
                   </button>
                 </div>
               </div>

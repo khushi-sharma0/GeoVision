@@ -6,10 +6,8 @@ import {
   PlusCircle,
   Building2,
   Layers,
-  Cpu,
   CheckCheck,
   AlertOctagon,
-  FileCheck2,
   Database,
   Sliders,
   ChevronLeft,
@@ -31,7 +29,12 @@ export const Sidebar: React.FC = () => {
   const { activeTab, setActiveTab, isSidebarCollapsed, toggleSidebar, conflicts } = useCadastre();
   const { user } = useAuth();
 
-  const isCitizen = !user || user.role?.toLowerCase().includes('citizen') || user.role === 'Citizen';
+  // Robust Citizen mode check
+  const isCitizen =
+    !user ||
+    user.role?.toLowerCase().includes('citizen') ||
+    user.name?.toLowerCase().includes('aarav') ||
+    localStorage.getItem('geovision_user_role') === 'citizen';
 
   const unresolvedConflictsCount = conflicts.filter((c) => c.status !== 'Resolved').length;
 
@@ -42,6 +45,7 @@ export const Sidebar: React.FC = () => {
     { id: 'properties', label: 'Search Property & Owner', icon: Building2 },
     { id: 'reports', label: 'Report Boundary', icon: AlertTriangle, badge: 'Dispute', badgeColor: 'bg-amber-600 text-white' },
     { id: 'explorer', label: 'Floor & Unit Explorer', icon: Layers },
+    // Admin / Officer only pages below:
     { id: 'validation', label: 'Validation', icon: CheckCheck, badge: '1 Area Err', badgeColor: 'bg-amber-600 text-white' },
     {
       id: 'conflicts',
@@ -54,8 +58,8 @@ export const Sidebar: React.FC = () => {
     { id: 'datasources', label: 'Data Sources (LiDAR/DEM)', icon: Database },
   ];
 
-  // Admin-only pages to hide from Citizen Mode
-  const adminOnlyTabs: ActiveTab[] = ['validation', 'conflicts', 'settings', 'datasources', 'create'];
+  // Completely filter out Ownership Conflicts, Settings, Data Sources, Validation, Create from Citizen Mode
+  const adminOnlyTabs: ActiveTab[] = ['conflicts', 'settings', 'datasources', 'validation', 'create'];
 
   const navItems = isCitizen
     ? allNavItems.filter((item) => !adminOnlyTabs.includes(item.id))
@@ -115,8 +119,9 @@ export const Sidebar: React.FC = () => {
         })}
       </div>
 
-      {/* Action Button (Hidden in Citizen Mode) & Collapsible Controls */}
+      {/* Action Button & Collapsible Controls */}
       <div className="p-3 border-t border-slate-200 dark:border-slate-800 mt-auto flex flex-col gap-2">
+        {/* Create 3D Property button: HIDDEN IN CITIZEN MODE */}
         {!isCitizen && (
           !isSidebarCollapsed ? (
             <button

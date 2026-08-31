@@ -72,7 +72,7 @@ const MainAppLayout: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8F5F0] dark:bg-[#191412] text-[#291F1D] dark:text-[#F8F4EE] flex flex-col font-sans antialiased select-none">
+        <div className="min-h-screen bg-[#F8F5F0] text-[#291F1D] flex flex-col font-sans antialiased select-none">
       {/* Fixed Top Navbar */}
       <TopNavbar />
 

@@ -35,11 +35,6 @@ export type ActiveTab =
   | 'settings';
 
 interface CadastreContextType {
-  // Theme
-  isDark: boolean;
-  toggleTheme: () => void;
-  setTheme: (dark: boolean) => void;
-
   // Active view
   activeTab: ActiveTab;
   setActiveTab: (tab: ActiveTab) => void;
@@ -127,7 +122,7 @@ const DEFAULT_LAYERS: LayerVisibilityState = {
   parkingSpaces: false,
   elevatedStructures: false,
   undergroundSpaces: false,
-  utilityTunnels: false
+  utilityTunnels: false,
 };
 
 const loadFromStorage = <T,>(key: string, defaultValue: T): T => {
@@ -145,16 +140,6 @@ const loadFromStorage = <T,>(key: string, defaultValue: T): T => {
 const CadastreContext = createContext<CadastreContextType | undefined>(undefined);
 
 export const CadastreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Theme initialization
-  const [isDark, setIsDark] = useState<boolean>(() => {
-    const saved = localStorage.getItem('geovision_theme');
-    if (saved) return saved === 'dark';
-    return false;
-  });
-
-  const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
-
   // Core Data State initialized with LocalStorage persistence
   const [parcels, setParcels] = useState<Parcel[]>(() =>
     loadFromStorage('geovision_parcels', INITIAL_PARCELS)
@@ -176,6 +161,10 @@ export const CadastreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   );
   const [utilities] = useState<UndergroundUtility[]>(INITIAL_UTILITIES);
 
+  // Active View & Sidebar Navigation State
+  const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
+
   // Selections
   const [selectedParcelId, setSelectedParcelId] = useState<string | null>(() =>
     loadFromStorage('geovision_selected_parcel_id', null)
@@ -193,16 +182,11 @@ export const CadastreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [isDocsModalOpen, setIsDocsModalOpen] = useState<boolean>(false);
   const [isFloorPlanModalOpen, setIsFloorPlanModalOpen] = useState<boolean>(false);
 
-  // Sync theme class with document element
+  // Ensure dark class is removed from HTML element on mount
   useEffect(() => {
-    if (isDark) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('geovision_theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('geovision_theme', 'light');
-    }
-  }, [isDark]);
+    document.documentElement.classList.remove('dark');
+    localStorage.removeItem('geovision_theme');
+  }, []);
 
   // Auto-persist data collections to localStorage whenever modified
   useEffect(() => {
@@ -237,8 +221,6 @@ export const CadastreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, [selectedParcelId]);
 
-  const toggleTheme = () => setIsDark((prev) => !prev);
-  const setTheme = (dark: boolean) => setIsDark(dark);
   const toggleSidebar = () => setIsSidebarCollapsed((prev) => !prev);
 
   const toggleLayer = (layerKey: keyof LayerVisibilityState) => {
@@ -595,9 +577,6 @@ export const CadastreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   return (
     <CadastreContext.Provider
       value={{
-        isDark,
-        toggleTheme,
-        setTheme,
         activeTab,
         setActiveTab,
         isSidebarCollapsed,

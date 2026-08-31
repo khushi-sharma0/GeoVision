@@ -29,6 +29,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useCadastre } from '../../context/CadastreContext';
+import { useAuth } from '../../context/AuthContext';
 import { CadastreScene3D } from '../3d/CadastreScene3D';
 import { UndergroundScene3D } from '../3d/UndergroundScene3D';
 import { LeafletMapWidget } from '../gis/LeafletMapWidget';
@@ -59,6 +60,13 @@ export const Viewer3DView: React.FC = () => {
     setIsFloorPlanModalOpen,
     setActiveTab,
   } = useCadastre();
+
+  const { user } = useAuth();
+  const isCitizen =
+    !user ||
+    user.role?.toLowerCase().includes('citizen') ||
+    user.name?.toLowerCase().includes('aarav') ||
+    localStorage.getItem('geovision_user_role') === 'citizen';
 
   const [copied, setCopied] = useState<boolean>(false);
   const [showUnderground, setShowUnderground] = useState<boolean>(false);
@@ -118,19 +126,25 @@ export const Viewer3DView: React.FC = () => {
                 </span>
               </div>
               <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-2 max-w-2xl">
-                No 3D property is currently active. Select an existing registered property from the catalog below to render its 3D volumetric model, or generate a new 3D spatial twin.
+                {isCitizen
+                  ? 'No 3D property is currently active. Select an existing registered property from the catalog below to render its 3D volumetric model.'
+                  : 'No 3D property is currently active. Select an existing registered property from the catalog below to render its 3D volumetric model, or generate a new 3D spatial twin.'}
               </p>
             </div>
 
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setActiveTab('create')}
-                className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-md shadow-blue-500/20 flex items-center gap-1.5 transition-all cursor-pointer"
-              >
-                <PlusCircle className="w-4 h-4" />
-                <span>Create / Generate 3D Property</span>
-              </button>
+              {/* Create 3D Property Button: Hidden in Citizen Mode */}
+              {!isCitizen && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('create')}
+                  className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-md shadow-blue-500/20 flex items-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  <span>Create / Generate 3D Property</span>
+                </button>
+              )}
+
               <button
                 type="button"
                 onClick={() => setActiveTab('properties')}
@@ -245,14 +259,16 @@ export const Viewer3DView: React.FC = () => {
             <div className="bg-white dark:bg-slate-900 rounded-2xl p-12 text-center border border-slate-200 dark:border-slate-800">
               <Building2 className="w-12 h-12 text-slate-300 mx-auto mb-3" />
               <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200">No properties match your search</h3>
-              <p className="text-xs text-slate-500 mt-1">Try adjusting the search terms or create a new property</p>
-              <button
-                type="button"
-                onClick={() => setActiveTab('create')}
-                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-semibold"
-              >
-                Create New Property
-              </button>
+              <p className="text-xs text-slate-500 mt-1">Try adjusting the search terms</p>
+              {!isCitizen && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('create')}
+                  className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-semibold cursor-pointer"
+                >
+                  Create New Property
+                </button>
+              )}
             </div>
           )}
 
@@ -398,15 +414,17 @@ export const Viewer3DView: React.FC = () => {
               </button>
             </div>
 
-            {/* Report Incorrect Boundary Button -> Redirects to Reports Page */}
-            <button
-              type="button"
-              onClick={() => setActiveTab('reports')}
-              className="px-3.5 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-md transition-all cursor-pointer"
-            >
-              <AlertTriangle className="w-4 h-4" />
-              <span>Report Incorrect Boundary</span>
-            </button>
+            {/* Report Incorrect Boundary Button -> Redirects to Reports Dispute Page */}
+            {isCitizen && (
+              <button
+                type="button"
+                onClick={() => setActiveTab('reports')}
+                className="px-3.5 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-md transition-all cursor-pointer"
+              >
+                <AlertTriangle className="w-4 h-4" />
+                <span>Report Incorrect Boundary</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -600,7 +618,7 @@ export const Viewer3DView: React.FC = () => {
           </div>
         </div>
 
-        {/* Right: Topology Status Alert Banner -> Details Button Redirects to Reports Page */}
+        {/* Right: Topology Status Alert Banner */}
         <div className="w-full md:w-80 p-3 bg-amber-50/70 dark:bg-amber-950/20 flex flex-col justify-center shrink-0">
           <div className="flex items-center justify-between mb-1">
             <span className="text-[10px] text-amber-800 dark:text-amber-300 font-bold uppercase tracking-wider flex items-center gap-1">
@@ -608,10 +626,10 @@ export const Viewer3DView: React.FC = () => {
               Topology Status
             </span>
             <button
-              onClick={() => setActiveTab('reports')}
+              onClick={() => setActiveTab(isCitizen ? 'reports' : 'validation')}
               className="text-[10px] text-amber-700 dark:text-amber-300 font-bold hover:underline cursor-pointer"
             >
-              Report Boundary &rarr;
+              {isCitizen ? 'Report Boundary →' : 'Details →'}
             </button>
           </div>
 

@@ -27,6 +27,7 @@ import {
   SlidersHorizontal,
   ChevronDown,
   Sparkles,
+  Trash2,
 } from 'lucide-react';
 import { useCadastre } from '../../context/CadastreContext';
 import { useAuth } from '../../context/AuthContext';
@@ -53,6 +54,7 @@ export const Viewer3DView: React.FC = () => {
     setSelectedUnitId,
     selectProperty,
     clearPropertySelection,
+    deleteProperty,
     layers,
     toggleLayer,
     setIsPropertyCardOpen,
@@ -240,14 +242,29 @@ export const Viewer3DView: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="pt-4 mt-3 border-t border-slate-100 dark:border-slate-800">
+                  <div className="pt-4 mt-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => selectProperty(p.id)}
-                      className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 group-hover:bg-blue-600 text-white font-semibold text-xs flex items-center justify-center gap-1.5 shadow-sm shadow-blue-500/20 transition-all cursor-pointer"
+                      className="flex-1 py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 group-hover:bg-blue-600 text-white font-semibold text-xs flex items-center justify-center gap-1.5 shadow-sm shadow-blue-500/20 transition-all cursor-pointer"
                     >
                       <Box className="w-4 h-4" />
                       <span>Load in 3D Viewer</span>
+                    </button>
+
+                    {/* Delete 3D Property Action Button */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (window.confirm(`Are you sure you want to delete ${bldg?.buildingName || p.localParcelId} (${p.ulpin}) from 3D properties?`)) {
+                          deleteProperty(p.id);
+                        }
+                      }}
+                      className="p-2.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-950/60 dark:text-red-400 font-bold text-xs flex items-center justify-center cursor-pointer transition-colors border border-red-200 dark:border-red-900"
+                      title="Delete 3D Property"
+                    >
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
@@ -304,15 +321,30 @@ export const Viewer3DView: React.FC = () => {
                   Active 3D Property
                 </span>
               </div>
-              <button
-                type="button"
-                onClick={clearPropertySelection}
-                title="Change or Deselect Property"
-                className="text-[10px] text-blue-600 dark:text-blue-400 font-bold flex items-center gap-1 hover:underline cursor-pointer"
-              >
-                <RotateCcw className="w-3 h-3" />
-                <span>Switch</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={clearPropertySelection}
+                  title="Change or Deselect Property"
+                  className="text-[10px] text-blue-600 dark:text-blue-400 font-bold flex items-center gap-1 hover:underline cursor-pointer"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Switch</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (selectedParcel && window.confirm(`Are you sure you want to delete active 3D property ${selectedParcel.localParcelId} (${selectedParcel.ulpin})?`)) {
+                      deleteProperty(selectedParcel.id);
+                    }
+                  }}
+                  title="Delete Active 3D Property"
+                  className="text-[10px] text-red-600 dark:text-red-400 font-bold flex items-center gap-0.5 hover:underline cursor-pointer"
+                >
+                  <Trash2 className="w-3 h-3" />
+                  <span>Delete</span>
+                </button>
+              </div>
             </div>
             
             {/* Property Quick Switcher Dropdown */}

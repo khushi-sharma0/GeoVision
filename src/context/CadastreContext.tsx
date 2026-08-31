@@ -104,6 +104,7 @@ interface CadastreContextType {
     customOwnerships?: OwnershipRecord[];
     customFloors?: Floor[];
   }) => string;
+  deleteProperty: (parcelId: string) => void;
   resolveConflict: (conflictId: string, resolutionAction: string) => void;
 }
 
@@ -123,42 +124,28 @@ const DEFAULT_LAYERS: LayerVisibilityState = {
   stormWater: true,
   gasPipeline: true,
   cadastralLabels: true,
+  parkingSpaces: false,
+  elevatedStructures: false,
+  undergroundSpaces: false,
+  utilityTunnels: false
+};
 
-  // 3D Extension Layers
-  parkingSpaces: true,
-  elevatedStructures: true,
-  undergroundSpaces: true,
-  utilityTunnels: true,
-} as LayerVisibilityState;
+const loadFromStorage = <T,>(key: string, defaultValue: T): T => {
+  try {
+    const saved = localStorage.getItem(key);
+    if (saved) {
+      return JSON.parse(saved);
+    }
+  } catch (error) {
+    console.error(`Failed to load ${key} from localStorage:`, error);
+  }
+  return defaultValue;
+};
 
 const CadastreContext = createContext<CadastreContextType | undefined>(undefined);
 
-function generatePreciseParcelGeoJSON(lat: number, lng: number, areaSqM: number) {
-  const sideMeters = Math.sqrt(areaSqM > 0 ? areaSqM : 1250);
-  const halfSide = sideMeters / 2.0;
-
-  const deltaLat = halfSide / 111320.0;
-  const deltaLng = halfSide / (111320.0 * Math.cos((lat * Math.PI) / 180.0));
-
-  return {
-    type: 'Feature' as const,
-    geometry: {
-      type: 'Polygon' as const,
-      coordinates: [
-        [
-          [Number((lng - deltaLng).toFixed(6)), Number((lat - deltaLat).toFixed(6))],
-          [Number((lng + deltaLng).toFixed(6)), Number((lat - deltaLat).toFixed(6))],
-          [Number((lng + deltaLng).toFixed(6)), Number((lat + deltaLat).toFixed(6))],
-          [Number((lng - deltaLng).toFixed(6)), Number((lat + deltaLat).toFixed(6))],
-          [Number((lng - deltaLng).toFixed(6)), Number((lat - deltaLat).toFixed(6))],
-        ],
-      ],
-    },
-    properties: {},
-  };
-}
-
 export const CadastreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Theme initialization
   const [isDark, setIsDark] = useState<boolean>(() => {
     const saved = localStorage.getItem('geovision_theme');
     if (saved) return saved === 'dark';
@@ -168,51 +155,56 @@ export const CadastreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
 
-    // Core Data State with localStorage persistence
-  const [parcels, setParcels] = useState<Parcel[]>(() => {
-    const saved = localStorage.getItem('geovision_parcels');
-    return saved ? JSON.parse(saved) : INITIAL_PARCELS;
-  });
-  const [buildings, setBuildings] = useState<Building[]>(() => {
-    const saved = localStorage.getItem('geovision_buildings');
-    return saved ? JSON.parse(saved) : INITIAL_BUILDINGS;
-  });
-  const [floors, setFloors] = useState<Floor[]>(() => {
-    const saved = localStorage.getItem('geovision_floors');
-    return saved ? JSON.parse(saved) : INITIAL_FLOORS;
-  });
-  const [units, setUnits] = useState<Unit[]>(() => {
-    const saved = localStorage.getItem('geovision_units');
-    return saved ? JSON.parse(saved) : INITIAL_UNITS;
-  });
-  const [ownerships, setOwnerships] = useState<OwnershipRecord[]>(() => {
-    const saved = localStorage.getItem('geovision_ownerships');
-    return saved ? JSON.parse(saved) : INITIAL_OWNERSHIPS;
-  });
-  const [conflicts, setConflicts] = useState<OwnershipConflict[]>(INITIAL_CONFLICTS);
-  const [utilities, setUtilities] = useState<UndergroundUtility[]>(() => {
-  const saved = localStorage.getItem('geovision_utilities');
-  return saved ? JSON.parse(saved) : INITIAL_UTILITIES;
-});
+  // Core Data State initialized with LocalStorage persistence
+  const [parcels, setParcels] = useState<Parcel[]>(() =>
+    loadFromStorage('geovision_parcels', INITIAL_PARCELS)
+  );
+  const [buildings, setBuildings] = useState<Building[]>(() =>
+    loadFromStorage('geovision_buildings', INITIAL_BUILDINGS)
+  );
+  const [floors, setFloors] = useState<Floor[]>(() =>
+    loadFromStorage('geovision_floors', INITIAL_FLOORS)
+  );
+  const [units, setUnits] = useState<Unit[]>(() =>
+    loadFromStorage('geovision_units', INITIAL_UNITS)
+  );
+  const [ownerships, setOwnerships] = useState<OwnershipRecord[]>(() =>
+    loadFromStorage('geovision_ownerships', INITIAL_OWNERSHIPS)
+  );
+  const [conflicts, setConflicts] = useState<OwnershipConflict[]>(() =>
+    loadFromStorage('geovision_conflicts', INITIAL_CONFLICTS)
+  );
+  const [utilities] = useState<UndergroundUtility[]>(INITIAL_UTILITIES);
 
-  // Selections with localStorage persistence
-  const [selectedParcelId, setSelectedParcelId] = useState<string | null>(() => {
-    return localStorage.getItem('geovision_selected_parcel_id');
-  });
-  const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(() => {
-    return localStorage.getItem('geovision_selected_building_id');
-  });
-  const [selectedFloorId, setSelectedFloorId] = useState<string | null>(() => {
-    return localStorage.getItem('geovision_selected_floor_id');
-  });
-  const [selectedUnitId, setSelectedUnitId] = useState<string | null>(() => {
-    return localStorage.getItem('geovision_selected_unit_id');
-  });
+  // Selections
+  const [selectedParcelId, setSelectedParcelId] = useState<string | null>(() =>
+    loadFromStorage('geovision_selected_parcel_id', null)
+  );
+  const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(null);
+  const [selectedFloorId, setSelectedFloorId] = useState<string | null>(null);
+  const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
 
-  // Sync state changes to localStorage
+  // Search & Filters
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [layers, setLayers] = useState<LayerVisibilityState>(DEFAULT_LAYERS);
+
+  // Modals
+  const [isPropertyCardOpen, setIsPropertyCardOpen] = useState<boolean>(false);
+  const [isDocsModalOpen, setIsDocsModalOpen] = useState<boolean>(false);
+  const [isFloorPlanModalOpen, setIsFloorPlanModalOpen] = useState<boolean>(false);
+
+  // Sync theme class with document element
   useEffect(() => {
-  localStorage.setItem('geovision_utilities', JSON.stringify(utilities));
-}, [utilities]);
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('geovision_theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('geovision_theme', 'light');
+    }
+  }, [isDark]);
+
+  // Auto-persist data collections to localStorage whenever modified
   useEffect(() => {
     localStorage.setItem('geovision_parcels', JSON.stringify(parcels));
   }, [parcels]);
@@ -234,43 +226,16 @@ export const CadastreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [ownerships]);
 
   useEffect(() => {
-    if (selectedParcelId) localStorage.setItem('geovision_selected_parcel_id', selectedParcelId);
-    else localStorage.removeItem('geovision_selected_parcel_id');
-  }, [selectedParcelId]);
+    localStorage.setItem('geovision_conflicts', JSON.stringify(conflicts));
+  }, [conflicts]);
 
   useEffect(() => {
-    if (selectedBuildingId) localStorage.setItem('geovision_selected_building_id', selectedBuildingId);
-    else localStorage.removeItem('geovision_selected_building_id');
-  }, [selectedBuildingId]);
-
-  useEffect(() => {
-    if (selectedFloorId) localStorage.setItem('geovision_selected_floor_id', selectedFloorId);
-    else localStorage.removeItem('geovision_selected_floor_id');
-  }, [selectedFloorId]);
-
-  useEffect(() => {
-    if (selectedUnitId) localStorage.setItem('geovision_selected_unit_id', selectedUnitId);
-    else localStorage.removeItem('geovision_selected_unit_id');
-  }, [selectedUnitId]);
-  
-  // Search & Filters
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [layers, setLayers] = useState<LayerVisibilityState>(DEFAULT_LAYERS);
-
-  // Modals
-  const [isPropertyCardOpen, setIsPropertyCardOpen] = useState<boolean>(false);
-  const [isDocsModalOpen, setIsDocsModalOpen] = useState<boolean>(false);
-  const [isFloorPlanModalOpen, setIsFloorPlanModalOpen] = useState<boolean>(false);
-
-  useEffect(() => {
-    if (isDark) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('geovision_theme', 'dark');
+    if (selectedParcelId) {
+      localStorage.setItem('geovision_selected_parcel_id', JSON.stringify(selectedParcelId));
     } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('geovision_theme', 'light');
+      localStorage.removeItem('geovision_selected_parcel_id');
     }
-  }, [isDark]);
+  }, [selectedParcelId]);
 
   const toggleTheme = () => setIsDark((prev) => !prev);
   const setTheme = (dark: boolean) => setIsDark(dark);
@@ -283,6 +248,7 @@ export const CadastreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }));
   };
 
+  // Helper to select a property by parcel ID
   const selectProperty = (parcelId: string) => {
     setSelectedParcelId(parcelId);
     const bldg = buildings.find((b) => b.parcelId === parcelId);
@@ -309,6 +275,7 @@ export const CadastreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
+  // Helper to clear property selection
   const clearPropertySelection = () => {
     setSelectedParcelId(null);
     setSelectedBuildingId(null);
@@ -316,6 +283,7 @@ export const CadastreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setSelectedUnitId(null);
   };
 
+  // Derived entities
   const selectedParcel = selectedParcelId ? parcels.find((p) => p.id === selectedParcelId) || null : null;
   const selectedBuilding = selectedBuildingId ? buildings.find((b) => b.id === selectedBuildingId) || null : null;
   const selectedFloor =
@@ -404,11 +372,6 @@ export const CadastreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
-  /**
-   * ENHANCED 3D PROPERTY GENERATION ENGINE:
-   * Generates Above-Ground Floors, Basement Levels (B1, B2), Basement Parking Spaces,
-   * Elevated Terrace Structures, Underground Storage Vaults, Utility Tunnels, and Pipelines.
-   */
   const addNewProperty = (payload: {
     parcel: Partial<Parcel>;
     building: Partial<Building>;
@@ -440,17 +403,23 @@ export const CadastreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       village: payload.parcel.village || 'Worli',
       taluk: payload.parcel.taluk || 'Mumbai City',
       district: payload.parcel.district || 'Mumbai',
-      boundaryGeoJSON:
-        (payload.parcel.boundaryGeoJSON as any) ||
-        generatePreciseParcelGeoJSON(
-          payload.parcel.latitude || 19.0178,
-          payload.parcel.longitude || 72.8178,
-          payload.parcel.areaSqM || 1400.0
-        ),
+      boundaryGeoJSON: payload.parcel.boundaryGeoJSON || {
+        type: 'Feature',
+        geometry: {
+          type: 'Polygon',
+          coordinates: [
+            [
+              [72.8168, 19.0172],
+              [72.8188, 19.0174],
+              [72.8185, 19.0186],
+              [72.8165, 19.0184],
+              [72.8168, 19.0172],
+            ],
+          ],
+        },
+        properties: {},
+      },
     };
-
-    const basementsCount = payload.building.numberOfBasements || 2;
-    const aboveFloorsCount = payload.floorsCount || 6;
 
     const newBuilding: Building = {
       id: newBldgId,
@@ -460,308 +429,121 @@ export const CadastreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       city: payload.parcel.city || 'Mumbai',
       location: payload.parcel.locationName || 'Worli, Mumbai',
       buildingType: payload.building.buildingType || 'High-Rise Residential Tower',
-      numberOfFloors: aboveFloorsCount,
-      numberOfBasements: basementsCount,
+      numberOfFloors: payload.floorsCount || 6,
+      numberOfBasements: payload.building.numberOfBasements || 2,
       floorHeightM: payload.building.floorHeightM || 3.0,
-      buildingHeightM: aboveFloorsCount * (payload.building.floorHeightM || 3.0),
+      buildingHeightM: (payload.floorsCount || 6) * (payload.building.floorHeightM || 3.0),
       footprintAreaSqM: payload.parcel.areaSqM ? payload.parcel.areaSqM * 0.65 : 850.0,
       yearBuilt: 2024,
       structureType: 'RCC Framed Multi-Storey',
-      parkingSpacesCount: basementsCount * 12,
-      elevatedStructuresCount: 3,
-      undergroundSpacesCount: 2,
-      utilityTunnelsCount: 1,
-    } as Building;
+    };
 
     let generatedFloors: Floor[] = [];
     let generatedUnits: Unit[] = [];
     let generatedOwnerships: OwnershipRecord[] = [];
 
-    const syntheticNames = [
-      'Aarav Mehta', 'Ananya Shah', 'Rohan Desai', 'Priya Nair', 'Vivaan Patel',
-      'Diya Kapoor', 'Kabir Joshi', 'Isha Verma', 'Reyansh Kulkarni', 'Meera Sharma',
-      'Siddharth Patil', 'Sneha Reddy', 'Aditya Verma', 'Tanya Malhotra', 'Nikhil Kulkarni'
-    ];
-    let nameIdx = 0;
-
-    // 1. GENERATE BASEMENT FLOORS (B1, B2) & PARKING SPACES
-    for (let b = 1; b <= basementsCount; b++) {
-      const bFloorId = `floor-${newBldgId}-B${b}`;
-      const bCode = `B${b}`;
-
-      generatedFloors.push({
-        id: bFloorId,
+    if (payload.customUnits && payload.customUnits.length > 0) {
+      generatedUnits = payload.customUnits.map((u) => ({
+        ...u,
         buildingId: newBldgId,
         buildingCode: bldgCode,
-        floorCode: bCode,
-        floorName: `Basement Level ${b} — Parking & Utility Vaults`,
-        floorIndex: -b,
-        zLevelM: -b * 3.0,
-        totalFloorAreaSqM: 850.0,
-        measuredUnitAreaSumSqM: 850.0,
-        validationStatus: 'VALID',
-        unitCount: 8,
-        colorHex: '#0284c7',
-        isBasement: true,
-        usageType: 'Basement Parking',
-      } as Floor);
+        parentParcelULPIN: newUlpin,
+      }));
 
-      // Add Parking Units in Basement
-      for (let p = 1; p <= 6; p++) {
-        const uId = `unit-${newBldgId}-B${b}-P0${p}`;
-        const uNum = `P-B${b}-0${p}`;
-        const uCode = `${bCode}-P0${p}`;
-        const fullUlpin = generateULPIN(newUlpin, bldgCode, bCode, `P0${p}`);
-
-        generatedUnits.push({
-          id: uId,
-          unitNumber: uNum,
-          unitCode: uCode,
-          buildingId: newBldgId,
-          buildingCode: bldgCode,
-          floorId: bFloorId,
-          floorCode: bCode,
-          full3DULPIN: fullUlpin,
-          parentParcelULPIN: newUlpin,
-          unitType: 'Parking Space',
-          carpetAreaSqM: 18.5,
-          builtUpAreaSqM: 22.0,
-          usage: 'Parking',
-          sharePercentageOfLand: 0.5,
-          status: 'Verified',
-          colorHex: '#0284c7',
-          relativeBounds: {
-            x: (p - 1) % 3 === 0 ? 0.05 : (p - 1) % 3 === 1 ? 0.36 : 0.68,
-            y: p > 3 ? 0.55 : 0.08,
-            w: 0.28,
-            d: 0.38,
-          },
-          polygon: [[10, 10], [90, 10], [90, 90], [10, 90]],
-          parkingSlotNo: uNum,
-          vehicleType: p % 2 === 0 ? '4-Wheeler SUV' : 'EV Charging Slot',
-        } as Unit);
-
-        const oName = syntheticNames[nameIdx % syntheticNames.length];
-        nameIdx++;
-        generatedOwnerships.push({
-          id: `own-${uId}`,
-          unitId: uId,
-          unitCode: uCode,
-          ownerName: oName,
-          ownerType: 'Individual',
-          ownershipPercentage: 100,
-          ownershipType: 'Freehold',
-          docRefNo: `DOC-2024-MH-PRK-${Math.floor(10000 + Math.random() * 90000)}`,
-          registrationDate: '2024-08-15',
-          verificationStatus: 'Verified',
-          contactEmail: `${oName.toLowerCase().replace(/\s+/g, '.')}@cadastre.gov.in`,
-          nationalIdMasked: `XXXX-XXXX-${Math.floor(1000 + Math.random() * 9000)}`,
-          mortgageStatus: 'None',
-        });
+      if (payload.customOwnerships) {
+        generatedOwnerships = payload.customOwnerships;
       }
 
-      // Add Underground Utility Room & Sump Tank in Basement
-      const uVaultId = `unit-${newBldgId}-B${b}-V01`;
-      const uVaultCode = `${bCode}-V01`;
-      const fullVaultUlpin = generateULPIN(newUlpin, bldgCode, bCode, 'V01');
-
-      generatedUnits.push({
-        id: uVaultId,
-        unitNumber: `V-B${b}-01`,
-        unitCode: uVaultCode,
-        buildingId: newBldgId,
-        buildingCode: bldgCode,
-        floorId: bFloorId,
-        floorCode: bCode,
-        full3DULPIN: fullVaultUlpin,
-        parentParcelULPIN: newUlpin,
-        unitType: 'Underground Storage Vault',
-        carpetAreaSqM: 85.0,
-        builtUpAreaSqM: 95.0,
-        usage: 'Subterranean Vault',
-        sharePercentageOfLand: 1.2,
-        status: 'Verified',
-        colorHex: '#6366f1',
-        relativeBounds: { x: 0.05, y: 0.55, w: 0.42, d: 0.38 },
-        polygon: [[10, 10], [90, 10], [90, 90], [10, 90]],
-        undergroundSpaceType: 'Sump Tank & Water Pump Room',
-      } as Unit);
-    }
-
-    // 2. GENERATE ABOVE-GROUND RESIDENTIAL FLOORS & UNITS
-    for (let f = 1; f <= aboveFloorsCount; f++) {
-      const floorId = `floor-${newBldgId}-${f}`;
-      const fCode = `F${f}`;
-      const floorArea = 820.0;
-
-      generatedFloors.push({
-        id: floorId,
-        buildingId: newBldgId,
-        buildingCode: bldgCode,
-        floorCode: fCode,
-        floorName: `${f}th Floor - Residential`,
-        floorIndex: f,
-        zLevelM: f * 3.0,
-        totalFloorAreaSqM: floorArea,
-        measuredUnitAreaSumSqM: floorArea,
-        validationStatus: 'VALID',
-        unitCount: payload.unitCountPerFloor || 4,
-        colorHex: f % 2 === 0 ? '#3b82f6' : '#22c55e',
-      } as Floor);
-
-      for (let u = 1; u <= (payload.unitCountPerFloor || 4); u++) {
-        const unitId = `unit-${newBldgId}-${f}-${u}`;
-        const unitNum = `${f}0${u}`;
-        const unitCode = `${fCode}-${unitNum}`;
-        const fullUlpin = generateULPIN(newUlpin, bldgCode, fCode, `U0${u}`);
-        const carpet = 120.0;
-
-        generatedUnits.push({
-          id: unitId,
-          unitNumber: unitNum,
-          unitCode: unitCode,
+      if (payload.customFloors && payload.customFloors.length > 0) {
+        generatedFloors = payload.customFloors.map((f) => ({
+          ...f,
           buildingId: newBldgId,
           buildingCode: bldgCode,
-          floorId: floorId,
+        }));
+      }
+    } else {
+      const syntheticNames = ['Aarav Mehta', 'Ananya Shah', 'Rohan Desai', 'Priya Nair', 'Vivaan Patel', 'Diya Kapoor'];
+      let nameIdx = 0;
+      const floorCount = payload.floorsCount || 6;
+      for (let f = 1; f <= floorCount; f++) {
+        const floorId = `floor-${newBldgId}-${f}`;
+        const fCode = `F${f}`;
+        const floorArea = 820.0;
+
+        generatedFloors.push({
+          id: floorId,
+          buildingId: newBldgId,
+          buildingCode: bldgCode,
           floorCode: fCode,
-          full3DULPIN: fullUlpin,
-          parentParcelULPIN: newUlpin,
-          unitType: u % 2 === 0 ? '3BHK Executive' : '2BHK Luxury',
-          carpetAreaSqM: carpet,
-          builtUpAreaSqM: carpet * 1.12,
-          usage: 'Residential',
-          sharePercentageOfLand: +(100 / (aboveFloorsCount * 4)).toFixed(2),
-          status: 'Verified',
-          colorHex: '#3b82f6',
-          relativeBounds: {
-            x: (u - 1) % 2 === 0 ? 0.05 : 0.52,
-            y: u > 2 ? 0.52 : 0.05,
-            w: 0.43,
-            d: 0.43,
-          },
-          polygon: [[10, 10], [90, 10], [90, 90], [10, 90]],
-        } as Unit);
-
-        const oName = syntheticNames[nameIdx % syntheticNames.length];
-        nameIdx++;
-        generatedOwnerships.push({
-          id: `own-${unitId}`,
-          unitId: unitId,
-          unitCode: unitCode,
-          ownerName: oName,
-          ownerType: 'Individual',
-          ownershipPercentage: 100,
-          ownershipType: 'Freehold',
-          docRefNo: `DOC-2024-MH-${Math.floor(10000 + Math.random() * 90000)}`,
-          registrationDate: '2024-08-15',
-          verificationStatus: 'Verified',
-          contactEmail: `${oName.toLowerCase().replace(/\s+/g, '.')}@cadastre.gov.in`,
-          nationalIdMasked: `XXXX-XXXX-${Math.floor(1000 + Math.random() * 9000)}`,
-          mortgageStatus: 'None',
+          floorName: `${f}th Floor - Residential`,
+          floorIndex: f,
+          zLevelM: f * 3.0,
+          totalFloorAreaSqM: floorArea,
+          measuredUnitAreaSumSqM: floorArea,
+          validationStatus: 'VALID',
+          unitCount: payload.unitCountPerFloor || 4,
+          colorHex: f % 2 === 0 ? '#3b82f6' : '#22c55e',
         });
+
+        for (let u = 1; u <= (payload.unitCountPerFloor || 4); u++) {
+          const unitId = `unit-${newBldgId}-${f}-${u}`;
+          const unitNum = `${f}0${u}`;
+          const unitCode = `${fCode}-${unitNum}`;
+          const fullUlpin = generateULPIN(newUlpin, bldgCode, fCode, `U0${u}`);
+          const carpet = 120.0;
+
+          generatedUnits.push({
+            id: unitId,
+            unitNumber: unitNum,
+            unitCode: unitCode,
+            buildingId: newBldgId,
+            buildingCode: bldgCode,
+            floorId: floorId,
+            floorCode: fCode,
+            full3DULPIN: fullUlpin,
+            parentParcelULPIN: newUlpin,
+            unitType: u % 2 === 0 ? '3BHK Executive' : '2BHK Luxury',
+            carpetAreaSqM: carpet,
+            builtUpAreaSqM: carpet * 1.12,
+            usage: 'Residential',
+            sharePercentageOfLand: +(100 / (floorCount * 4)).toFixed(2),
+            status: 'Verified',
+            colorHex: '#3b82f6',
+            relativeBounds: {
+              x: (u - 1) % 2 === 0 ? 0.05 : 0.52,
+              y: u > 2 ? 0.52 : 0.05,
+              w: 0.43,
+              d: 0.43,
+            },
+            polygon: [[10, 10], [90, 10], [90, 90], [10, 90]],
+          });
+
+          const oName = syntheticNames[nameIdx % syntheticNames.length];
+          nameIdx++;
+          generatedOwnerships.push({
+            id: `own-${unitId}`,
+            unitId: unitId,
+            unitCode: unitCode,
+            ownerName: oName,
+            ownerType: 'Individual',
+            ownershipPercentage: 100,
+            ownershipType: 'Freehold',
+            docRefNo: `DOC-2024-MH-${Math.floor(10000 + Math.random() * 90000)}`,
+            registrationDate: '2024-08-15',
+            verificationStatus: 'Verified',
+            contactEmail: `${oName.toLowerCase().replace(/\s+/g, '.')}@cadastre.gov.in`,
+            nationalIdMasked: `XXXX-XXXX-${Math.floor(1000 + Math.random() * 9000)}`,
+            mortgageStatus: 'None',
+          });
+        }
       }
     }
-
-    // 3. GENERATE ELEVATED TERRACE STRUCTURES & SKYDECK
-    const terraceFloorId = `floor-${newBldgId}-TER`;
-    generatedFloors.push({
-      id: terraceFloorId,
-      buildingId: newBldgId,
-      buildingCode: bldgCode,
-      floorCode: 'TER',
-      floorName: 'Terrace Level — Elevated Facilities & Solar Array',
-      floorIndex: aboveFloorsCount + 1,
-      zLevelM: (aboveFloorsCount + 1) * 3.0,
-      totalFloorAreaSqM: 820.0,
-      measuredUnitAreaSumSqM: 320.0,
-      validationStatus: 'VALID',
-      unitCount: 3,
-      colorHex: '#eab308',
-      isElevated: true,
-      usageType: 'Elevated Structure',
-    } as Floor);
-
-    const elevatedUnits = [
-      { code: 'E01', name: 'Rooftop Solar Array & Clean Energy Grid', area: 180.0, type: 'Rooftop Solar Array' },
-      { code: 'E02', name: 'Elevator Machine Tower & Water Sump', area: 65.0, type: 'Elevator Machine Tower' },
-      { code: 'E03', name: 'Rooftop Skydeck & Helipad Facility', area: 240.0, type: 'Rooftop Helipad / Skydeck' },
-    ];
-
-    elevatedUnits.forEach((eItem, eIdx) => {
-      const eUnitId = `unit-${newBldgId}-TER-${eItem.code}`;
-      const fullElevatedUlpin = generateULPIN(newUlpin, bldgCode, 'TER', eItem.code);
-
-      generatedUnits.push({
-        id: eUnitId,
-        unitNumber: `E-${eItem.code}`,
-        unitCode: `TER-${eItem.code}`,
-        buildingId: newBldgId,
-        buildingCode: bldgCode,
-        floorId: terraceFloorId,
-        floorCode: 'TER',
-        full3DULPIN: fullElevatedUlpin,
-        parentParcelULPIN: newUlpin,
-        unitType: 'Elevated Structure',
-        carpetAreaSqM: eItem.area,
-        builtUpAreaSqM: eItem.area * 1.08,
-        usage: 'Elevated Facility',
-        sharePercentageOfLand: 0.0,
-        status: 'Verified',
-        colorHex: '#eab308',
-        relativeBounds: {
-          x: eIdx === 0 ? 0.05 : eIdx === 1 ? 0.42 : 0.68,
-          y: 0.1,
-          w: 0.3,
-          d: 0.75,
-        },
-        polygon: [[10, 10], [90, 10], [90, 90], [10, 90]],
-        elevatedStructureType: eItem.type as any,
-      } as Unit);
-    });
-
-    // 4. GENERATE 3D PIPELINE NETWORK PIPES CONNECTED TO NEW PARCEL
-    const newPipelines: UndergroundUtility[] = [
-      {
-        id: `util-${Date.now()}-w`,
-        type: 'Water Pipeline',
-        name: `Main Water Feeder Line — ${bldgCode}`,
-        depthM: -2.5,
-        diameterMm: 350,
-        material: 'Ductile Iron (DI)',
-        colorHex: '#0284c7',
-        coordinates: [[-12, -2.5, -10], [0, -2.5, 0], [12, -2.5, 10]],
-        status: 'Active',
-      },
-      {
-        id: `util-${Date.now()}-s`,
-        type: 'Sewer Line',
-        name: `Subterranean Sewer Line — ${bldgCode}`,
-        depthM: -4.8,
-        diameterMm: 500,
-        material: 'RCC Reinforced Concrete',
-        colorHex: '#ea580c',
-        coordinates: [[-14, -4.8, 8], [0, -4.8, 0], [14, -4.8, -8]],
-        status: 'Active',
-      },
-      {
-        id: `util-${Date.now()}-g`,
-        type: 'Gas Pipeline',
-        name: `PNG Natural Gas Distribution — ${bldgCode}`,
-        depthM: -1.8,
-        diameterMm: 150,
-        material: 'High-Density Polyethylene (HDPE)',
-        colorHex: '#8b5cf6',
-        coordinates: [[-10, -1.8, -6], [0, -1.8, 0], [10, -1.8, 6]],
-        status: 'Active',
-      },
-    ];
 
     setParcels((prev) => [newParcel, ...prev]);
     setBuildings((prev) => [newBuilding, ...prev]);
     setFloors((prev) => [...generatedFloors, ...prev]);
     setUnits((prev) => [...generatedUnits, ...prev]);
     setOwnerships((prev) => [...generatedOwnerships, ...prev]);
-    setUtilities((prev) => [...newPipelines, ...prev]);
 
     setSelectedParcelId(newParcelId);
     setSelectedBuildingId(newBldgId);
@@ -773,6 +555,27 @@ export const CadastreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
 
     return newParcelId;
+  };
+
+  // Delete Property Mutator: Removes parcel, building, floors, units, ownerships, and conflicts
+  const deleteProperty = (parcelId: string) => {
+    const bldgsToRemove = buildings.filter((b) => b.parcelId === parcelId);
+    const bldgIdsToRemove = bldgsToRemove.map((b) => b.id);
+    const floorsToRemove = floors.filter((f) => bldgIdsToRemove.includes(f.buildingId));
+    const floorIdsToRemove = floorsToRemove.map((f) => f.id);
+    const unitsToRemove = units.filter((u) => bldgIdsToRemove.includes(u.buildingId) || floorIdsToRemove.includes(u.floorId));
+    const unitIdsToRemove = unitsToRemove.map((u) => u.id);
+
+    setParcels((prev) => prev.filter((p) => p.id !== parcelId));
+    setBuildings((prev) => prev.filter((b) => b.parcelId !== parcelId));
+    setFloors((prev) => prev.filter((f) => !bldgIdsToRemove.includes(f.buildingId)));
+    setUnits((prev) => prev.filter((u) => !bldgIdsToRemove.includes(u.buildingId)));
+    setOwnerships((prev) => prev.filter((o) => !unitIdsToRemove.includes(o.unitId)));
+    setConflicts((prev) => prev.filter((c) => !unitIdsToRemove.includes(c.unitId)));
+
+    if (selectedParcelId === parcelId) {
+      clearPropertySelection();
+    }
   };
 
   const resolveConflict = (conflictId: string, resolutionAction: string) => {
@@ -835,6 +638,7 @@ export const CadastreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         isFloorPlanModalOpen,
         setIsFloorPlanModalOpen,
         addNewProperty,
+        deleteProperty,
         resolveConflict,
       }}
     >

@@ -63,12 +63,7 @@ export const LoginPage: React.FC = () => {
       {/* Top Header */}
       <div className="w-full max-w-5xl flex items-center justify-between z-10 py-2">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-white p-0.5 shadow-xs border border-slate-200 dark:border-slate-800 flex items-center justify-center overflow-hidden">
-            <img src="/logo.jpeg" alt="GeoVision Logo" className="w-full h-full object-contain" />
-          </div>
-          <span className="text-xs font-bold tracking-tight text-slate-700 dark:text-slate-300">
-            Govt. of Maharashtra • 3D Cadastral & Vertical Property Portal
-          </span>
+          
         </div>
 
         {/* Theme Toggle */}

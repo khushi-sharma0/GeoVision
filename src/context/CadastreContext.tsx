@@ -99,7 +99,7 @@ interface CadastreContextType {
     customOwnerships?: OwnershipRecord[];
     customFloors?: Floor[];
   }) => string;
-  deleteProperty: (parcelId: string) => void;
+  deleteProperty?: (parcelId: string) => void;
   resolveConflict: (conflictId: string, resolutionAction: string) => void;
 }
 
@@ -122,7 +122,7 @@ const DEFAULT_LAYERS: LayerVisibilityState = {
   parkingSpaces: false,
   elevatedStructures: false,
   undergroundSpaces: false,
-  utilityTunnels: false,
+  utilityTunnels: false
 };
 
 const loadFromStorage = <T,>(key: string, defaultValue: T): T => {
@@ -140,35 +140,20 @@ const loadFromStorage = <T,>(key: string, defaultValue: T): T => {
 const CadastreContext = createContext<CadastreContextType | undefined>(undefined);
 
 export const CadastreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Core Data State initialized with LocalStorage persistence
-  const [parcels, setParcels] = useState<Parcel[]>(() =>
-    loadFromStorage('geovision_parcels', INITIAL_PARCELS)
-  );
-  const [buildings, setBuildings] = useState<Building[]>(() =>
-    loadFromStorage('geovision_buildings', INITIAL_BUILDINGS)
-  );
-  const [floors, setFloors] = useState<Floor[]>(() =>
-    loadFromStorage('geovision_floors', INITIAL_FLOORS)
-  );
-  const [units, setUnits] = useState<Unit[]>(() =>
-    loadFromStorage('geovision_units', INITIAL_UNITS)
-  );
-  const [ownerships, setOwnerships] = useState<OwnershipRecord[]>(() =>
-    loadFromStorage('geovision_ownerships', INITIAL_OWNERSHIPS)
-  );
-  const [conflicts, setConflicts] = useState<OwnershipConflict[]>(() =>
-    loadFromStorage('geovision_conflicts', INITIAL_CONFLICTS)
-  );
-  const [utilities] = useState<UndergroundUtility[]>(INITIAL_UTILITIES);
-
-  // Active View & Sidebar Navigation State
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
 
+  // Core Data State
+  const [parcels, setParcels] = useState<Parcel[]>(INITIAL_PARCELS);
+  const [buildings, setBuildings] = useState<Building[]>(INITIAL_BUILDINGS);
+  const [floors, setFloors] = useState<Floor[]>(INITIAL_FLOORS);
+  const [units, setUnits] = useState<Unit[]>(INITIAL_UNITS);
+  const [ownerships, setOwnerships] = useState<OwnershipRecord[]>(INITIAL_OWNERSHIPS);
+  const [conflicts, setConflicts] = useState<OwnershipConflict[]>(INITIAL_CONFLICTS);
+  const [utilities] = useState<UndergroundUtility[]>(INITIAL_UTILITIES);
+
   // Selections
-  const [selectedParcelId, setSelectedParcelId] = useState<string | null>(() =>
-    loadFromStorage('geovision_selected_parcel_id', null)
-  );
+  const [selectedParcelId, setSelectedParcelId] = useState<string | null>(null);
   const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(null);
   const [selectedFloorId, setSelectedFloorId] = useState<string | null>(null);
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
@@ -182,44 +167,11 @@ export const CadastreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [isDocsModalOpen, setIsDocsModalOpen] = useState<boolean>(false);
   const [isFloorPlanModalOpen, setIsFloorPlanModalOpen] = useState<boolean>(false);
 
-  // Ensure dark class is removed from HTML element on mount
+  // Ensure dark class is removed on mount
   useEffect(() => {
     document.documentElement.classList.remove('dark');
     localStorage.removeItem('geovision_theme');
   }, []);
-
-  // Auto-persist data collections to localStorage whenever modified
-  useEffect(() => {
-    localStorage.setItem('geovision_parcels', JSON.stringify(parcels));
-  }, [parcels]);
-
-  useEffect(() => {
-    localStorage.setItem('geovision_buildings', JSON.stringify(buildings));
-  }, [buildings]);
-
-  useEffect(() => {
-    localStorage.setItem('geovision_floors', JSON.stringify(floors));
-  }, [floors]);
-
-  useEffect(() => {
-    localStorage.setItem('geovision_units', JSON.stringify(units));
-  }, [units]);
-
-  useEffect(() => {
-    localStorage.setItem('geovision_ownerships', JSON.stringify(ownerships));
-  }, [ownerships]);
-
-  useEffect(() => {
-    localStorage.setItem('geovision_conflicts', JSON.stringify(conflicts));
-  }, [conflicts]);
-
-  useEffect(() => {
-    if (selectedParcelId) {
-      localStorage.setItem('geovision_selected_parcel_id', JSON.stringify(selectedParcelId));
-    } else {
-      localStorage.removeItem('geovision_selected_parcel_id');
-    }
-  }, [selectedParcelId]);
 
   const toggleSidebar = () => setIsSidebarCollapsed((prev) => !prev);
 
@@ -230,7 +182,6 @@ export const CadastreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }));
   };
 
-  // Helper to select a property by parcel ID
   const selectProperty = (parcelId: string) => {
     setSelectedParcelId(parcelId);
     const bldg = buildings.find((b) => b.parcelId === parcelId);
@@ -257,7 +208,6 @@ export const CadastreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
-  // Helper to clear property selection
   const clearPropertySelection = () => {
     setSelectedParcelId(null);
     setSelectedBuildingId(null);
@@ -265,7 +215,6 @@ export const CadastreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setSelectedUnitId(null);
   };
 
-  // Derived entities
   const selectedParcel = selectedParcelId ? parcels.find((p) => p.id === selectedParcelId) || null : null;
   const selectedBuilding = selectedBuildingId ? buildings.find((b) => b.id === selectedBuildingId) || null : null;
   const selectedFloor =
@@ -539,27 +488,6 @@ export const CadastreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return newParcelId;
   };
 
-  // Delete Property Mutator: Removes parcel, building, floors, units, ownerships, and conflicts
-  const deleteProperty = (parcelId: string) => {
-    const bldgsToRemove = buildings.filter((b) => b.parcelId === parcelId);
-    const bldgIdsToRemove = bldgsToRemove.map((b) => b.id);
-    const floorsToRemove = floors.filter((f) => bldgIdsToRemove.includes(f.buildingId));
-    const floorIdsToRemove = floorsToRemove.map((f) => f.id);
-    const unitsToRemove = units.filter((u) => bldgIdsToRemove.includes(u.buildingId) || floorIdsToRemove.includes(u.floorId));
-    const unitIdsToRemove = unitsToRemove.map((u) => u.id);
-
-    setParcels((prev) => prev.filter((p) => p.id !== parcelId));
-    setBuildings((prev) => prev.filter((b) => b.parcelId !== parcelId));
-    setFloors((prev) => prev.filter((f) => !bldgIdsToRemove.includes(f.buildingId)));
-    setUnits((prev) => prev.filter((u) => !bldgIdsToRemove.includes(u.buildingId)));
-    setOwnerships((prev) => prev.filter((o) => !unitIdsToRemove.includes(o.unitId)));
-    setConflicts((prev) => prev.filter((c) => !unitIdsToRemove.includes(c.unitId)));
-
-    if (selectedParcelId === parcelId) {
-      clearPropertySelection();
-    }
-  };
-
   const resolveConflict = (conflictId: string, resolutionAction: string) => {
     setConflicts((prev) =>
       prev.map((c) =>
@@ -617,7 +545,6 @@ export const CadastreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         isFloorPlanModalOpen,
         setIsFloorPlanModalOpen,
         addNewProperty,
-        deleteProperty,
         resolveConflict,
       }}
     >

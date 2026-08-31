@@ -1,3 +1,8 @@
+/**
+ * GeoVision — 3D ULPIN & Vertical Property Mapping System
+ * Built for Cadastral Land Administration (LADM ISO 19152)
+ */
+
 import React from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CadastreProvider, useCadastre } from './context/CadastreContext';
@@ -25,10 +30,8 @@ import { OwnershipDocsModal } from './components/modals/OwnershipDocsModal';
 import { FloorPlanModal } from './components/modals/FloorPlanModal';
 
 const MainAppLayout: React.FC = () => {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated } = useAuth();
   const { activeTab } = useCadastre();
-
-  const isCitizen = !user || user.role?.toLowerCase().includes('citizen') || user.role === 'Citizen';
 
   // If not authenticated, show official login screen first
   if (!isAuthenticated) {
@@ -36,11 +39,6 @@ const MainAppLayout: React.FC = () => {
   }
 
   const renderActiveView = () => {
-    // Guard admin-only views from Citizen Mode
-    if (isCitizen && ['create', 'validation', 'conflicts', 'settings', 'datasources'].includes(activeTab)) {
-      return <DashboardView />;
-    }
-
     switch (activeTab) {
       case 'dashboard':
         return <DashboardView />;
@@ -72,7 +70,7 @@ const MainAppLayout: React.FC = () => {
   };
 
   return (
-        <div className="min-h-screen bg-[#F8F5F0] text-[#291F1D] flex flex-col font-sans antialiased select-none">
+    <div className="min-h-screen bg-[#F8F5F0] text-[#291F1D] flex flex-col font-sans antialiased select-none">
       {/* Fixed Top Navbar */}
       <TopNavbar />
 

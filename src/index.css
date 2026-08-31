@@ -26,6 +26,7 @@
     font-family: 'IBM Plex Mono', monospace;
   }
 
+  /* Subtle, restrained curve edges for boxes, cards, and interactive controls */
   button, input, select, textarea, .card, [class*="rounded-"], [class*="border"] {
     border-radius: 6px;
   }

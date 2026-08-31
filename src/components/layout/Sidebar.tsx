@@ -58,12 +58,15 @@ export const Sidebar: React.FC = () => {
     { id: 'datasources', label: 'Data Sources (LiDAR/DEM)', icon: Database },
   ];
 
-  // Completely filter out Ownership Conflicts, Settings, Data Sources, Validation, Create from Citizen Mode
+  // Citizen-only items (Hidden in Authority Mode)
+  const citizenOnlyTabs: ActiveTab[] = ['reports'];
+
+  // Admin/Authority-only items (Hidden in Citizen Mode)
   const adminOnlyTabs: ActiveTab[] = ['conflicts', 'settings', 'datasources', 'validation', 'create'];
 
   const navItems = isCitizen
     ? allNavItems.filter((item) => !adminOnlyTabs.includes(item.id))
-    : allNavItems;
+    : allNavItems.filter((item) => !citizenOnlyTabs.includes(item.id));
 
   return (
     <aside

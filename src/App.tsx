@@ -1,8 +1,3 @@
-/**
- * GeoVision — 3D ULPIN & Vertical Property Mapping System
- * Built for Cadastral Land Administration (LADM ISO 19152)
- */
-
 import React from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CadastreProvider, useCadastre } from './context/CadastreContext';
@@ -28,38 +23,24 @@ import { SettingsView } from './components/views/SettingsView';
 import { DigitalPropertyCardModal } from './components/modals/DigitalPropertyCardModal';
 import { OwnershipDocsModal } from './components/modals/OwnershipDocsModal';
 import { FloorPlanModal } from './components/modals/FloorPlanModal';
-import { ReportBoundaryModal } from './components/modals/ReportBoundaryModal';
-import { CorrectionTransferModal } from './components/modals/CorrectionTransferModal';
 
 const MainAppLayout: React.FC = () => {
-  const { isAuthenticated, userType } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const { activeTab } = useCadastre();
 
-  // Show official login page if unauthenticated
+  const isCitizen = !user || user.role?.toLowerCase().includes('citizen') || user.role === 'Citizen';
+
+  // If not authenticated, show official login screen first
   if (!isAuthenticated) {
     return <LoginPage />;
   }
 
   const renderActiveView = () => {
-    // If Citizen Mode is active, restrict access to Authority-only views
-    if (userType === 'citizen') {
-      switch (activeTab) {
-        case 'viewer3d':
-          return <Viewer3DView />;
-        case 'map2d':
-          return <Map2DView />;
-        case 'properties':
-          return <PropertiesView />;
-        case 'explorer':
-          return <FloorUnitExplorerView />;
-        case 'reports':
-          return <ReportsView />;
-        default:
-          return <Viewer3DView />;
-      }
+    // Guard admin-only views from Citizen Mode
+    if (isCitizen && ['create', 'validation', 'conflicts', 'settings', 'datasources'].includes(activeTab)) {
+      return <DashboardView />;
     }
 
-    // Full Authority Mode view suite
     switch (activeTab) {
       case 'dashboard':
         return <DashboardView />;
@@ -86,7 +67,7 @@ const MainAppLayout: React.FC = () => {
       case 'settings':
         return <SettingsView />;
       default:
-        return <DashboardView />;
+        return <Viewer3DView />;
     }
   };
 
@@ -97,10 +78,10 @@ const MainAppLayout: React.FC = () => {
 
       {/* Main Body Layout */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Collapsible Sidebar */}
+        {/* Left Collapsible Sidebar with independent scroll */}
         <Sidebar />
 
-        {/* Dynamic View Canvas */}
+        {/* Dynamic View Canvas with controlled scrolling */}
         <main className="flex-1 overflow-hidden relative">
           {renderActiveView()}
         </main>
@@ -110,8 +91,6 @@ const MainAppLayout: React.FC = () => {
       <DigitalPropertyCardModal />
       <OwnershipDocsModal />
       <FloorPlanModal />
-      <ReportBoundaryModal />
-      <CorrectionTransferModal />
     </div>
   );
 };

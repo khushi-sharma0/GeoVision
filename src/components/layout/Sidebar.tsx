@@ -17,6 +17,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { useCadastre, ActiveTab } from '../../context/CadastreContext';
+import { useAuth } from '../../context/AuthContext';
 
 interface NavItem {
   id: ActiveTab;
@@ -28,15 +29,18 @@ interface NavItem {
 
 export const Sidebar: React.FC = () => {
   const { activeTab, setActiveTab, isSidebarCollapsed, toggleSidebar, conflicts } = useCadastre();
+  const { user } = useAuth();
+
+  const isCitizen = !user || user.role?.toLowerCase().includes('citizen') || user.role === 'Citizen';
 
   const unresolvedConflictsCount = conflicts.filter((c) => c.status !== 'Resolved').length;
 
-  const navItems: NavItem[] = [
+  const allNavItems: NavItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'map2d', label: '2D GIS Map', icon: Map },
     { id: 'viewer3d', label: '3D Property Viewer', icon: Box, badge: 'Main', badgeColor: 'bg-blue-600 text-white' },
     { id: 'properties', label: 'Search Property & Owner', icon: Building2 },
-    { id: 'reports', label: 'Report Boundary', icon: AlertTriangle, badge: 'Report', badgeColor: 'bg-amber-600 text-white' },
+    { id: 'reports', label: 'Report Boundary', icon: AlertTriangle, badge: 'Dispute', badgeColor: 'bg-amber-600 text-white' },
     { id: 'explorer', label: 'Floor & Unit Explorer', icon: Layers },
     { id: 'validation', label: 'Validation', icon: CheckCheck, badge: '1 Area Err', badgeColor: 'bg-amber-600 text-white' },
     {
@@ -50,6 +54,13 @@ export const Sidebar: React.FC = () => {
     { id: 'datasources', label: 'Data Sources (LiDAR/DEM)', icon: Database },
   ];
 
+  // Admin-only pages to hide from Citizen Mode
+  const adminOnlyTabs: ActiveTab[] = ['validation', 'conflicts', 'settings', 'datasources', 'create'];
+
+  const navItems = isCitizen
+    ? allNavItems.filter((item) => !adminOnlyTabs.includes(item.id))
+    : allNavItems;
+
   return (
     <aside
       className={`relative h-[calc(100vh-3.5rem)] bg-slate-50 dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 transition-all duration-300 flex flex-col z-30 select-none ${
@@ -60,7 +71,7 @@ export const Sidebar: React.FC = () => {
       <div className="flex-1 py-4 px-2 space-y-1 overflow-y-auto">
         {!isSidebarCollapsed && (
           <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-2 px-3">
-            Cadastral Layers
+            {isCitizen ? 'Citizen Services' : 'Cadastral Layers'}
           </div>
         )}
 
@@ -104,30 +115,32 @@ export const Sidebar: React.FC = () => {
         })}
       </div>
 
-      {/* Action Button & Collapsible Controls */}
+      {/* Action Button (Hidden in Citizen Mode) & Collapsible Controls */}
       <div className="p-3 border-t border-slate-200 dark:border-slate-800 mt-auto flex flex-col gap-2">
-        {!isSidebarCollapsed ? (
-          <button
-            onClick={() => setActiveTab('create')}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white p-2.5 rounded-lg text-center font-bold text-xs shadow-sm transition-colors flex items-center justify-center gap-1.5"
-          >
-            <PlusCircle className="w-3.5 h-3.5" />
-            <span>+ Create 3D Property</span>
-          </button>
-        ) : (
-          <button
-            onClick={() => setActiveTab('create')}
-            title="Create 3D Property"
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-lg text-center font-bold text-xs shadow-sm transition-colors flex items-center justify-center"
-          >
-            <PlusCircle className="w-4 h-4" />
-          </button>
+        {!isCitizen && (
+          !isSidebarCollapsed ? (
+            <button
+              onClick={() => setActiveTab('create')}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white p-2.5 rounded-lg text-center font-bold text-xs shadow-sm transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <PlusCircle className="w-3.5 h-3.5" />
+              <span>+ Create 3D Property</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => setActiveTab('create')}
+              title="Create 3D Property"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-lg text-center font-bold text-xs shadow-sm transition-colors flex items-center justify-center cursor-pointer"
+            >
+              <PlusCircle className="w-4 h-4" />
+            </button>
+          )
         )}
 
         {/* Sidebar expand/collapse toggle */}
         <button
           onClick={toggleSidebar}
-          className="w-full py-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors flex items-center justify-center text-[11px]"
+          className="w-full py-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors flex items-center justify-center text-[11px] cursor-pointer"
           title={isSidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
         >
           {isSidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}

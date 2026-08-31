@@ -113,7 +113,7 @@ export const TopNavbar: React.FC = () => {
         >
           <div className="w-9 h-9 rounded-lg bg-white p-0.5 shadow-xs border border-slate-200 dark:border-slate-800 flex items-center justify-center overflow-hidden group-hover:scale-105 transition-transform">
             <img
-              src="/logo.jpg"
+              src="/logo.jpeg"
               alt="GeoVision Logo"
               className="w-full h-full object-contain"
             />

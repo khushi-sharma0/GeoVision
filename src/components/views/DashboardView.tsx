@@ -24,28 +24,27 @@ import {
   Legend,
 } from 'recharts';
 import { useCadastre } from '../../context/CadastreContext';
+import { useAuth } from '../../context/AuthContext';
 
 export const DashboardView: React.FC = () => {
   const { parcels, buildings, floors, units, conflicts, setActiveTab, selectProperty, isDark } = useCadastre();
+  const { user } = useAuth();
 
-  // Live-computed KPIs from context data (matches PropertiesView totals exactly)
-  const totalParcels = parcels.length;
-  const totalBuildings = buildings.length;
-  const totalFloors = floors.length;
-  const totalUnits = units.length;
-  const totalConflicts = conflicts.length;
-  const verifiedUnits = units.filter((u) => u.status === 'Verified').length;
-  const pendingUnits = units.filter((u) => u.status === 'Pending').length;
-  const verifiedPct = totalUnits > 0 ? ((verifiedUnits / totalUnits) * 100).toFixed(1) : '0.0';
+  const isCitizen =
+    !user ||
+    user.role?.toLowerCase().includes('citizen') ||
+    user.name?.toLowerCase().includes('aarav') ||
+    localStorage.getItem('geovision_user_role') === 'citizen';
 
+  // Synthetic Cadastral KPIs
   const stats = [
-    { label: 'TOTAL PARCELS', value: String(totalParcels), sub: 'Registered 2D Parcels', icon: MapPin, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-950/50' },
-    { label: 'BUILDINGS', value: String(totalBuildings), sub: 'Multi-Storey Structures', icon: Building2, color: 'text-indigo-600', bg: 'bg-indigo-50 dark:bg-indigo-950/50' },
-    { label: 'FLOORS', value: String(totalFloors), sub: 'Vertical Strata Slabs', icon: Layers, color: 'text-purple-600', bg: 'bg-purple-50 dark:bg-purple-950/50' },
-    { label: 'UNITS', value: String(totalUnits), sub: '3D Cadastral Spatial Units', icon: Building2, color: 'text-cyan-600', bg: 'bg-cyan-50 dark:bg-cyan-950/50' },
-    { label: 'VERIFIED', value: String(verifiedUnits), sub: `${verifiedPct}% Clear Ownership`, icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-950/50' },
-    { label: 'CONFLICTS', value: String(totalConflicts), sub: 'Flagged for Adjudication', icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-50 dark:bg-red-950/50' },
-    { label: 'PENDING', value: String(pendingUnits), sub: 'Awaiting Sub-Registrar', icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950/50' },
+    { label: 'TOTAL PARCELS', value: '20', sub: 'Registered 2D Parcels', icon: MapPin, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-950/50' },
+    { label: 'BUILDINGS', value: '12', sub: 'Multi-Storey Structures', icon: Building2, color: 'text-indigo-600', bg: 'bg-indigo-50 dark:bg-indigo-950/50' },
+    { label: 'FLOORS', value: '78', sub: 'Vertical Strata Slabs', icon: Layers, color: 'text-purple-600', bg: 'bg-purple-50 dark:bg-purple-950/50' },
+    { label: 'UNITS', value: '312', sub: '3D Cadastral Spatial Units', icon: Building2, color: 'text-cyan-600', bg: 'bg-cyan-50 dark:bg-cyan-950/50' },
+    { label: 'VERIFIED', value: '286', sub: '91.6% Clear Ownership', icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-950/50' },
+    { label: 'CONFLICTS', value: '8', sub: 'Flagged for Adjudication', icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-50 dark:bg-red-950/50' },
+    { label: 'PENDING', value: '18', sub: 'Awaiting Sub-Registrar', icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950/50' },
   ];
 
   // Chart 1: Properties by Land Use
@@ -77,7 +76,7 @@ export const DashboardView: React.FC = () => {
   ];
 
   return (
-    <div className="h-[calc(100vh-3.5rem)] overflow-y-auto bg-slate-50 dark:bg-slate-950 p-4 md:p-6 space-y-6">
+    <div className="h-[calc(100vh-3.5rem)] overflow-y-auto bg-slate-50 dark:bg-slate-950 p-4 md:p-6 space-y-6 select-none">
       <div className="max-w-7xl mx-auto space-y-6">
         
         {/* Banner / System Header */}
@@ -99,18 +98,21 @@ export const DashboardView: React.FC = () => {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setActiveTab('viewer3d')}
-              className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-md shadow-blue-500/20 flex items-center gap-1.5 transition-all"
+              className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-md shadow-blue-500/20 flex items-center gap-1.5 transition-all cursor-pointer"
             >
               <Zap className="w-4 h-4" />
               <span>Launch 3D Viewer</span>
             </button>
 
-            <button
-              onClick={() => setActiveTab('create')}
-              className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold text-xs transition-colors"
-            >
-              + Create 3D Property
-            </button>
+            {/* Create 3D Property Button: Hidden in Citizen Mode */}
+            {!isCitizen && (
+              <button
+                onClick={() => setActiveTab('create')}
+                className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold text-xs transition-colors cursor-pointer"
+              >
+                + Create 3D Property
+              </button>
+            )}
           </div>
         </div>
 
@@ -208,7 +210,7 @@ export const DashboardView: React.FC = () => {
                     cx="50%"
                     cy="50%"
                     outerRadius={65}
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    label={({ name, percent }: any) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
                     labelLine={false}
                   >
                     {verificationData.map((entry, index) => (
@@ -227,7 +229,7 @@ export const DashboardView: React.FC = () => {
           <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100 dark:border-slate-800">
             <div>
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
-                Registered Cadastral Parcels (Maharashtra)
+                Registered Cadastral Parcels (Bangalore Urban)
               </h3>
               <p className="text-xs text-slate-400">
                 Click any parcel to inspect 3D volumetric strata and ownership cards
@@ -236,9 +238,9 @@ export const DashboardView: React.FC = () => {
 
             <button
               onClick={() => setActiveTab('properties')}
-              className="text-xs text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-1"
+              className="text-xs text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-1 cursor-pointer"
             >
-              <span>View All {totalParcels} Parcels</span>
+              <span>View All 20 Parcels</span>
               <ArrowUpRight className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -247,13 +249,13 @@ export const DashboardView: React.FC = () => {
             <table className="w-full text-left text-xs font-mono">
               <thead className="bg-slate-50 dark:bg-slate-800 text-slate-500 uppercase tracking-wider text-[10px]">
                 <tr>
-                  <th className="p-2.5">Parcel ID</th>
-                  <th className="p-2.5">2D ULPIN</th>
-                  <th className="p-2.5">Location</th>
-                  <th className="p-2.5">Area (m²)</th>
-                  <th className="p-2.5">Land Use</th>
-                  <th className="p-2.5">Status</th>
-                  <th className="p-2.5 text-right">Action</th>
+                  <th className="p-3">Parcel ID</th>
+                  <th className="p-3">2D ULPIN</th>
+                  <th className="p-3">Location</th>
+                  <th className="p-3">Area (m²)</th>
+                  <th className="p-3">Land Use</th>
+                  <th className="p-3">Status</th>
+                  <th className="p-3 text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-800 dark:text-slate-200">
@@ -279,7 +281,7 @@ export const DashboardView: React.FC = () => {
                       </span>
                     </td>
                     <td className="p-2.5 text-right font-sans">
-                      <button className="px-2 py-1 rounded bg-blue-50 text-blue-600 hover:bg-blue-100 font-semibold text-[11px]">
+                      <button className="px-2 py-1 rounded bg-blue-50 text-blue-600 hover:bg-blue-100 font-semibold text-[11px] cursor-pointer">
                         View 3D
                       </button>
                     </td>
@@ -293,4 +295,3 @@ export const DashboardView: React.FC = () => {
     </div>
   );
 };
-

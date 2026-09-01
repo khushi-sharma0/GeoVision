@@ -24,59 +24,152 @@ import {
   Legend,
 } from 'recharts';
 import { useCadastre } from '../../context/CadastreContext';
-import { useAuth } from '../../context/AuthContext';
 
 export const DashboardView: React.FC = () => {
-  const { parcels, buildings, floors, units, conflicts, setActiveTab, selectProperty, isDark } = useCadastre();
-  const { user } = useAuth();
+  const cadastreContext = useCadastre();
 
-  const isCitizen =
-    !user ||
-    user.role?.toLowerCase().includes('citizen') ||
-    user.name?.toLowerCase().includes('aarav') ||
-    localStorage.getItem('geovision_user_role') === 'citizen';
+  // Guaranteed safe boolean resolution for isDark aligning with custom-variant dark
+  // Cast as any to resolve ts(2339) if isDark is not declared in CadastreContextType interface
+  const isDark = Boolean(
+    (cadastreContext as any)?.isDark ?? 
+    (typeof document !== 'undefined' && document.documentElement.classList.contains('dark'))
+  );
 
-  // Synthetic Cadastral KPIs
+  // Safe context extraction with fallbacks
+  const parcels = cadastreContext?.parcels ?? [];
+  const buildings = cadastreContext?.buildings ?? [];
+  const floors = cadastreContext?.floors ?? [];
+  const units = cadastreContext?.units ?? [];
+  const conflicts = cadastreContext?.conflicts ?? [];
+  const setActiveTab = cadastreContext?.setActiveTab ?? (() => {});
+  const selectProperty = cadastreContext?.selectProperty ?? (() => {});
+
+  // Dynamic Cadastral KPIs calculated directly from active context state
+  const totalParcelsCount = parcels.length;
+  const totalBuildingsCount = buildings.length;
+  const totalFloorsCount = floors.length;
+  const totalUnitsCount = units.length;
+  const verifiedUnitsCount = units.filter((u) => u.status === 'Verified').length;
+  const conflictsCount = conflicts.length;
+  const pendingUnitsCount = units.filter((u) => u.status === 'Pending' || u.status === 'Draft' || u.status === 'Flagged').length;
+
+  const verifiedPercent = totalUnitsCount > 0 
+    ? ((verifiedUnitsCount / totalUnitsCount) * 100).toFixed(1) 
+    : '0';
+
   const stats = [
-    { label: 'TOTAL PARCELS', value: '20', sub: 'Registered 2D Parcels', icon: MapPin, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-950/50' },
-    { label: 'BUILDINGS', value: '12', sub: 'Multi-Storey Structures', icon: Building2, color: 'text-indigo-600', bg: 'bg-indigo-50 dark:bg-indigo-950/50' },
-    { label: 'FLOORS', value: '78', sub: 'Vertical Strata Slabs', icon: Layers, color: 'text-purple-600', bg: 'bg-purple-50 dark:bg-purple-950/50' },
-    { label: 'UNITS', value: '312', sub: '3D Cadastral Spatial Units', icon: Building2, color: 'text-cyan-600', bg: 'bg-cyan-50 dark:bg-cyan-950/50' },
-    { label: 'VERIFIED', value: '286', sub: '91.6% Clear Ownership', icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-950/50' },
-    { label: 'CONFLICTS', value: '8', sub: 'Flagged for Adjudication', icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-50 dark:bg-red-950/50' },
-    { label: 'PENDING', value: '18', sub: 'Awaiting Sub-Registrar', icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950/50' },
+    { 
+      label: 'TOTAL PARCELS', 
+      value: String(totalParcelsCount), 
+      sub: `${totalParcelsCount} Registered Parcel${totalParcelsCount === 1 ? '' : 's'}`, 
+      icon: MapPin, 
+      color: 'text-blue-600', 
+      bg: 'bg-blue-50 dark:bg-blue-950/50' 
+    },
+    { 
+      label: 'BUILDINGS', 
+      value: String(totalBuildingsCount), 
+      sub: `${totalBuildingsCount} Multi-Storey Structure${totalBuildingsCount === 1 ? '' : 's'}`, 
+      icon: Building2, 
+      color: 'text-indigo-600', 
+      bg: 'bg-indigo-50 dark:bg-indigo-950/50' 
+    },
+    { 
+      label: 'FLOORS', 
+      value: String(totalFloorsCount), 
+      sub: `${totalFloorsCount} Vertical Strata Slab${totalFloorsCount === 1 ? '' : 's'}`, 
+      icon: Layers, 
+      color: 'text-purple-600', 
+      bg: 'bg-purple-50 dark:bg-purple-950/50' 
+    },
+    { 
+      label: 'UNITS', 
+      value: String(totalUnitsCount), 
+      sub: `${totalUnitsCount} 3D Cadastral Spatial Unit${totalUnitsCount === 1 ? '' : 's'}`, 
+      icon: Building2, 
+      color: 'text-cyan-600', 
+      bg: 'bg-cyan-50 dark:bg-cyan-950/50' 
+    },
+    { 
+      label: 'VERIFIED', 
+      value: String(verifiedUnitsCount), 
+      sub: `${verifiedPercent}% Clear Ownership`, 
+      icon: CheckCircle2, 
+      color: 'text-emerald-600', 
+      bg: 'bg-emerald-50 dark:bg-emerald-950/50' 
+    },
+    { 
+      label: 'CONFLICTS', 
+      value: String(conflictsCount), 
+      sub: `${conflictsCount} Flagged for Adjudication`, 
+      icon: AlertTriangle, 
+      color: 'text-red-600', 
+      bg: 'bg-red-50 dark:bg-red-950/50' 
+    },
+    { 
+      label: 'PENDING', 
+      value: String(pendingUnitsCount), 
+      sub: `${pendingUnitsCount} Awaiting Review`, 
+      icon: Clock, 
+      color: 'text-amber-600', 
+      bg: 'bg-amber-50 dark:bg-amber-950/50' 
+    },
   ];
 
-  // Chart 1: Properties by Land Use
-  const landUseData = [
-    { name: 'Residential', value: 12, color: '#3b82f6' },
-    { name: 'Commercial', value: 5, color: '#06b6d4' },
-    { name: 'Mixed Use', value: 2, color: '#8b5cf6' },
-    { name: 'Institutional', value: 1, color: '#10b981' },
-  ];
+  // Dynamic Chart 1: Properties by Land Use (grouped from actual parcels)
+  const landUseCounts: Record<string, number> = {};
+  parcels.forEach((p) => {
+    const lu = p.landUse || 'Other';
+    landUseCounts[lu] = (landUseCounts[lu] || 0) + 1;
+  });
 
-  // Chart 2: Units by Floor Level
-  const unitsByFloorData = [
-    { floor: 'B2', units: 6 },
-    { floor: 'B1', units: 12 },
-    { floor: 'GF', units: 24 },
-    { floor: 'F1', units: 48 },
-    { floor: 'F2', units: 54 },
-    { floor: 'F3', units: 58 },
-    { floor: 'F4', units: 46 },
-    { floor: 'F5', units: 40 },
-    { floor: 'Terrace', units: 24 },
-  ];
+  const landUseColorMap: Record<string, string> = {
+    Residential: '#3b82f6',
+    Commercial: '#06b6d4',
+    'Mixed Use': '#8b5cf6',
+    Institutional: '#10b981',
+    Industrial: '#f59e0b',
+    'Special Economic Zone': '#ec4899',
+    Other: '#64748b',
+  };
 
-  // Chart 3: Verification Status
+  const landUseData = Object.keys(landUseCounts).length > 0
+    ? Object.entries(landUseCounts).map(([name, value]) => ({
+        name,
+        value,
+        color: landUseColorMap[name] || '#3b82f6',
+      }))
+    : [{ name: 'Residential', value: 1, color: '#3b82f6' }];
+
+  // Dynamic Chart 2: Units per Floor Slab (grouped from floors/units)
+  const floorUnitCounts: Record<string, number> = {};
+  if (units.length > 0) {
+    units.forEach((u) => {
+      const code = u.floorCode || 'GF';
+      floorUnitCounts[code] = (floorUnitCounts[code] || 0) + 1;
+    });
+  } else {
+    floors.forEach((f) => {
+      floorUnitCounts[f.floorCode] = f.unitCount || 0;
+    });
+  }
+
+  const unitsByFloorData = Object.keys(floorUnitCounts).length > 0
+    ? Object.entries(floorUnitCounts).map(([floor, count]) => ({
+        floor,
+        units: count,
+      }))
+    : [{ floor: 'GF', units: 0 }];
+
+  // Dynamic Chart 3: Verification Status
   const verificationData = [
-    { name: 'Verified', count: 286, color: '#22c55e' },
-    { name: 'Pending Review', count: 18, color: '#f59e0b' },
-    { name: 'Flagged Conflict', count: 8, color: '#ef4444' },
+    { name: 'Verified', count: verifiedUnitsCount, color: '#22c55e' },
+    { name: 'Pending Review', count: pendingUnitsCount, color: '#f59e0b' },
+    { name: 'Flagged Conflict', count: conflictsCount, color: '#ef4444' },
   ];
 
   return (
-    <div className="h-[calc(100vh-3.5rem)] overflow-y-auto bg-slate-50 dark:bg-slate-950 p-4 md:p-6 space-y-6 select-none">
+    <div className="h-[calc(100vh-3.5rem)] overflow-y-auto bg-[#F8F5F0] dark:bg-slate-950 p-4 md:p-6 space-y-6">
       <div className="max-w-7xl mx-auto space-y-6">
         
         {/* Banner / System Header */}
@@ -104,19 +197,16 @@ export const DashboardView: React.FC = () => {
               <span>Launch 3D Viewer</span>
             </button>
 
-            {/* Create 3D Property Button: Hidden in Citizen Mode */}
-            {!isCitizen && (
-              <button
-                onClick={() => setActiveTab('create')}
-                className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold text-xs transition-colors cursor-pointer"
-              >
-                + Create 3D Property
-              </button>
-            )}
+            <button
+              onClick={() => setActiveTab('create')}
+              className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold text-xs transition-colors cursor-pointer"
+            >
+              + Create 3D Property
+            </button>
           </div>
         </div>
 
-        {/* Top 7 Statistics Cards matching specification */}
+        {/* Dynamic Statistics Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
           {stats.map((st) => {
             const Icon = st.icon;
@@ -209,15 +299,16 @@ export const DashboardView: React.FC = () => {
                     nameKey="name"
                     cx="50%"
                     cy="50%"
-                    outerRadius={65}
-                    label={({ name, percent }: any) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
-                    labelLine={false}
+                    innerRadius={40}
+                    outerRadius={60}
+                    paddingAngle={4}
                   >
                     {verificationData.map((entry, index) => (
                       <Cell key={`vcell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
                   <Tooltip contentStyle={{ backgroundColor: isDark ? '#1e293b' : '#ffffff', borderRadius: 8, fontSize: 11 }} />
+                  <Legend iconType="circle" wrapperStyle={{ fontSize: 11 }} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -229,7 +320,7 @@ export const DashboardView: React.FC = () => {
           <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100 dark:border-slate-800">
             <div>
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
-                Registered Cadastral Parcels (Bangalore Urban)
+                Registered Cadastral Parcels
               </h3>
               <p className="text-xs text-slate-400">
                 Click any parcel to inspect 3D volumetric strata and ownership cards
@@ -240,7 +331,7 @@ export const DashboardView: React.FC = () => {
               onClick={() => setActiveTab('properties')}
               className="text-xs text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-1 cursor-pointer"
             >
-              <span>View All 20 Parcels</span>
+              <span>View All {parcels.length} Parcel{parcels.length === 1 ? '' : 's'}</span>
               <ArrowUpRight className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -249,13 +340,13 @@ export const DashboardView: React.FC = () => {
             <table className="w-full text-left text-xs font-mono">
               <thead className="bg-slate-50 dark:bg-slate-800 text-slate-500 uppercase tracking-wider text-[10px]">
                 <tr>
-                  <th className="p-3">Parcel ID</th>
-                  <th className="p-3">2D ULPIN</th>
-                  <th className="p-3">Location</th>
-                  <th className="p-3">Area (m²)</th>
-                  <th className="p-3">Land Use</th>
-                  <th className="p-3">Status</th>
-                  <th className="p-3 text-right">Action</th>
+                  <th className="p-2.5">Parcel ID</th>
+                  <th className="p-2.5">2D ULPIN</th>
+                  <th className="p-2.5">Location</th>
+                  <th className="p-2.5">Area (m²)</th>
+                  <th className="p-2.5">Land Use</th>
+                  <th className="p-2.5">Status</th>
+                  <th className="p-2.5 text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-800 dark:text-slate-200">
@@ -281,7 +372,7 @@ export const DashboardView: React.FC = () => {
                       </span>
                     </td>
                     <td className="p-2.5 text-right font-sans">
-                      <button className="px-2 py-1 rounded bg-blue-50 text-blue-600 hover:bg-blue-100 font-semibold text-[11px] cursor-pointer">
+                      <button className="px-2 py-1 rounded bg-blue-50 text-blue-600 hover:bg-blue-100 font-semibold text-[11px]">
                         View 3D
                       </button>
                     </td>
